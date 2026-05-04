@@ -34,9 +34,16 @@ export default function CalculatorPage() {
     localStorage.setItem("nsa-5k-pace", String(fkp))
   }, [fkp])
 
-  const paceDisplay = inputMode === "20min"
-    ? `${(inpA + inpB / 100).toFixed(2)} km`
-    : `${fmtPace(fkp)}/km`
+  const paceDisplay = (() => {
+    if (inputMode === "20min") return `${(inpA + inpB / 100).toFixed(2)} km`
+    if (inputMode === "5k") return `${fmtPace(fkp)}/km`
+    // Show actual race pace for 10k/half/full
+    const totalSecs = inputMode === "10k"
+      ? inpA * 60 + inpB
+      : inpA * 3600 + inpB * 60
+    const distKm = inputMode === "10k" ? 10 : inputMode === "half" ? 21.0975 : 42.195
+    return `${fmtPace(totalSecs / distKm)}/km`
+  })()
 
   return (
     <div className="max-w-[740px] mx-auto px-5 py-8 pb-12 space-y-6">
