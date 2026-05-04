@@ -13,10 +13,26 @@ interface RaceInputProps {
   onInpBChange: (v: number) => void
 }
 
+const modes: { mode: InputMode; label: string }[] = [
+  { mode: "5k", label: "5K" },
+  { mode: "10k", label: "10K" },
+  { mode: "half", label: "Half" },
+  { mode: "full", label: "Full" },
+  { mode: "20min", label: "20' test" },
+]
+
+function inputLabel(mode: InputMode): [string, string] {
+  if (mode === "20min") return ["Dist", "."]
+  if (mode === "half" || mode === "full") return ["Hr", ":"]
+  return ["Min", ":"]
+}
+
 export function RaceInput({
   inputMode, inpA, inpB, paceDisplay,
   onModeChange, onInpAChange, onInpBChange,
 }: RaceInputProps) {
+  const [lblA, separator] = inputLabel(inputMode)
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -24,26 +40,21 @@ export function RaceInput({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex gap-1.5">
-          <Button
-            variant={inputMode === "5k" ? "default" : "outline"}
-            size="sm"
-            className="flex-1 text-xs"
-            onClick={() => onModeChange("5k")}
-          >
-            5K race
-          </Button>
-          <Button
-            variant={inputMode === "20min" ? "default" : "outline"}
-            size="sm"
-            className="flex-1 text-xs"
-            onClick={() => onModeChange("20min")}
-          >
-            20' test
-          </Button>
+          {modes.map((m) => (
+            <Button
+              key={m.mode}
+              variant={inputMode === m.mode ? "default" : "outline"}
+              size="sm"
+              className="flex-1 text-xs px-1"
+              onClick={() => onModeChange(m.mode)}
+            >
+              {m.label}
+            </Button>
+          ))}
         </div>
         <div className="flex items-center gap-1.5">
           <label className="text-xs text-muted-foreground min-w-7">
-            {inputMode === "5k" ? "Min" : "Dist"}
+            {lblA}
           </label>
           <Input
             type="number"
@@ -51,7 +62,7 @@ export function RaceInput({
             onChange={(e) => onInpAChange(Number(e.target.value))}
             className="w-14 text-center font-mono text-sm"
           />
-          <span className="text-muted-foreground">:</span>
+          <span className="text-muted-foreground">{separator}</span>
           <Input
             type="number"
             value={inpB}

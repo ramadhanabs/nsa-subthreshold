@@ -11,6 +11,27 @@ describe("get5kPace", () => {
     // 20min test, 4.50km => 1200/4.5 = 266.67
     expect(get5kPace("20min", 4, 50)).toBeCloseTo(266.67, 1)
   })
+
+  it("returns pace per km from 10k time via Riegel", () => {
+    // 50:00 10K → Riegel 5K equiv ≈ 24:01 → ~288s/km
+    const pace = get5kPace("10k", 50, 0)
+    expect(pace).toBeGreaterThan(280)
+    expect(pace).toBeLessThan(295)
+  })
+
+  it("returns pace per km from half marathon time via Riegel", () => {
+    // 1:50:00 half → should give a reasonable 5K pace
+    const pace = get5kPace("half", 1, 50)
+    expect(pace).toBeGreaterThan(270)
+    expect(pace).toBeLessThan(310)
+  })
+
+  it("returns pace per km from marathon time via Riegel", () => {
+    // 3:50:00 marathon → should give a reasonable 5K pace
+    const pace = get5kPace("full", 3, 50)
+    expect(pace).toBeGreaterThan(270)
+    expect(pace).toBeLessThan(310)
+  })
 })
 
 describe("getHR", () => {

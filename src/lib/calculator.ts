@@ -1,4 +1,4 @@
-export type InputMode = "5k" | "20min"
+export type InputMode = "5k" | "10k" | "half" | "full" | "20min"
 export type WkMode = "dist" | "time"
 
 export interface HRZones {
@@ -25,8 +25,16 @@ export function fmtPace(s: number): string {
   return `${m}:${sc < 10 ? "0" : ""}${sc}`
 }
 
+/** Convert race time at a given distance to equivalent 5K time using Riegel formula */
+function riegelTo5k(raceSecs: number, distKm: number): number {
+  return raceSecs * (5 / distKm) ** 1.06
+}
+
 export function get5kPace(mode: InputMode, a: number, b: number): number {
   if (mode === "5k") return (a * 60 + b) / 5
+  if (mode === "10k") return riegelTo5k(a * 60 + b, 10) / 5
+  if (mode === "half") return riegelTo5k(a * 3600 + b * 60, 21.0975) / 5
+  if (mode === "full") return riegelTo5k(a * 3600 + b * 60, 42.195) / 5
   return 1200 / (a + b / 100)
 }
 

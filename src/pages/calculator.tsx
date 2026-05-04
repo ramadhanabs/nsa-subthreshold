@@ -16,20 +16,24 @@ export default function CalculatorPage() {
 
   const handleModeChange = (mode: InputMode) => {
     setInputMode(mode)
-    if (mode === "20min") {
-      setInpA(4); setInpB(50)
-    } else {
-      setInpA(24); setInpB(30)
+    const defaults: Record<InputMode, [number, number]> = {
+      "5k": [24, 30],
+      "10k": [50, 0],
+      "half": [1, 50],
+      "full": [3, 50],
+      "20min": [4, 50],
     }
+    const [a, b] = defaults[mode]
+    setInpA(a); setInpB(b)
   }
 
   const fkp = get5kPace(inputMode, inpA, inpB)
   const hr = getHR(mhr)
   const workouts = getWorkouts(fkp, wkMode)
 
-  const paceDisplay = inputMode === "5k"
-    ? `${fmtPace(fkp)}/km`
-    : `${(inpA + inpB / 100).toFixed(2)} km`
+  const paceDisplay = inputMode === "20min"
+    ? `${(inpA + inpB / 100).toFixed(2)} km`
+    : `${fmtPace(fkp)}/km`
 
   return (
     <div className="max-w-[740px] mx-auto px-5 py-8 pb-12 space-y-6">
@@ -39,7 +43,7 @@ export default function CalculatorPage() {
         </h1>
         <p className="text-sm text-muted-foreground max-w-[520px]">
           Norwegian Singles method — derive your sub-threshold paces and HR zones
-          from a 5K race or 20-minute time trial.
+          from a race result (5K to marathon) or 20-minute time trial.
         </p>
       </header>
 
