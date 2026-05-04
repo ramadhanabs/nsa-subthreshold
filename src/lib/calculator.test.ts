@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { get5kPace, getHR, getWorkouts, fmtPace } from "./calculator"
+import { get5kPace, getHR, getWorkouts, getPaceZones, fmtPace } from "./calculator"
 
 describe("get5kPace", () => {
   it("returns pace per km from 5k time", () => {
@@ -46,16 +46,40 @@ describe("getHR", () => {
 })
 
 describe("getWorkouts", () => {
-  it("returns 7 workouts (5 interval + 2 easy)", () => {
+  it("returns 5 workouts (2 easy + 3 sub-T)", () => {
     const wks = getWorkouts(294, "dist")
-    expect(wks).toHaveLength(7)
-    expect(wks[5].name).toBe("Easy run")
-    expect(wks[6].name).toBe("Long run")
+    expect(wks).toHaveLength(5)
+    expect(wks[0].name).toBe("Easy run")
+    expect(wks[1].name).toBe("Long run")
+    expect(wks[2].name).toBe("Short sub-T session")
+    expect(wks[3].name).toBe("Medium sub-T session")
+    expect(wks[4].name).toBe("Long sub-T session")
   })
 
-  it("uses time-based names in time mode", () => {
+  it("shows distance equivalents in dist mode", () => {
+    const wks = getWorkouts(294, "dist")
+    expect(wks[2].detail).toContain("km total")
+    expect(wks[2].detail).toContain("10 x 1000m")
+  })
+
+  it("shows time equivalents in time mode", () => {
     const wks = getWorkouts(294, "time")
-    expect(wks[0].name).toBe("25 x 1:30")
+    expect(wks[2].detail).toContain("total")
+    expect(wks[2].detail).toContain("10 x")
+  })
+})
+
+describe("getPaceZones", () => {
+  it("derives pace ranges from 5k pace", () => {
+    const pz = getPaceZones(294)
+    // threshold = 294 * 1.02 = 299.88
+    expect(pz.threshold).toBeCloseTo(299.88, 1)
+    // short range should be faster than medium
+    expect(pz.short[0]).toBeLessThan(pz.medium[0])
+    // long range should be slowest
+    expect(pz.long[1]).toBeGreaterThan(pz.medium[1])
+    // easy max should be slower than all intervals
+    expect(pz.easyMax).toBeGreaterThan(pz.long[1])
   })
 })
 

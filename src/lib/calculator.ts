@@ -20,8 +20,9 @@ export interface Workout {
 }
 
 export function fmtPace(s: number): string {
-  const m = Math.floor(s / 60)
-  const sc = Math.round(s % 60)
+  const total = Math.round(s)
+  const m = Math.floor(total / 60)
+  const sc = total % 60
   return `${m}:${sc < 10 ? "0" : ""}${sc}`
 }
 
@@ -52,39 +53,46 @@ export function getHR(maxHR: number): HRZones {
 export function getWorkouts(fkp: number, wkMode: WkMode): Workout[] {
   const cv = fkp * 1.02
   const defs = [
-    { dn: "25 x 400m", tn: "25 x 1:30", dd: "Short reps, highest pace", td: "Short reps ~400m equiv", pf: 0.98, rs: 30, z: "top" as const, dm: 400, ts: 90, reps: 25 },
-    { dn: "10 x 1000m", tn: "10 x 4:00", dd: "Bread & butter", td: "Bread & butter ~1K equiv", pf: 1.055, rs: 60, z: "sub" as const, dm: 1000, ts: 240, reps: 10 },
-    { dn: "6 x 1600m", tn: "6 x 6:00", dd: "Moderate reps", td: "Moderate ~1.6K equiv", pf: 1.09, rs: 60, z: "sub" as const, dm: 1600, ts: 360, reps: 6 },
-    { dn: "5 x 2000m", tn: "5 x 8:00", dd: "Long reps", td: "Long reps ~2K equiv", pf: 1.12, rs: 60, z: "sub" as const, dm: 2000, ts: 480, reps: 5 },
-    { dn: "3 x 3000m", tn: "3 x 12:00", dd: "Longest reps", td: "Longest ~3K equiv", pf: 1.14, rs: 90, z: "low" as const, dm: 3000, ts: 720, reps: 3 },
+    { name: "Short sub-T session", pf: 1.055, rs: 60, z: "sub" as const, dm: 1000, ts: 240, reps: 10 },
+    { name: "Medium sub-T session", pf: 1.09, rs: 60, z: "sub" as const, dm: 1600, ts: 360, reps: 6 },
+    { name: "Long sub-T session", pf: 1.12, rs: 60, z: "sub" as const, dm: 2000, ts: 480, reps: 5 },
   ]
 
   const intervals: Workout[] = defs.map((d) => {
     const pace = cv * d.pf
-    const name = wkMode === "dist" ? d.dn : d.tn
-    const detailBase = wkMode === "dist" ? d.dd : d.td
-    let repTime: number, repDist: number
-    if (wkMode === "dist") {
-      repTime = Math.round(pace * (d.dm / 1000))
-      repDist = d.dm
-    } else {
-      repTime = d.ts
-      repDist = Math.round((d.ts / pace) * 1000)
-    }
-    const extra =
-      wkMode === "dist"
-        ? ` (${fmtPace(repTime)}/rep)`
-        : ` (~${repDist}m/rep)`
-    const rest =
-      d.rs < 60 ? `${d.rs}s` : d.rs === 90 ? "1:30" : `${Math.round(d.rs / 60)}:00`
-    return { name, detail: detailBase + extra, pace, rest, zone: d.z }
+    const totalDist = d.dm * d.reps
+    const totalTime = Math.round(pace * (totalDist / 1000))
+    const detail = wkMode === "dist"
+      ? `~${(totalDist / 1000).toFixed(1)} km total (${d.reps} x ${d.dm}m)`
+      : `~${fmtPace(totalTime)} total (${d.reps} x ${fmtPace(d.ts)})`
+    const rest = d.rs === 90 ? "1:30" : `${Math.round(d.rs / 60)}:00`
+    return { name: d.name, detail, pace, rest, zone: d.z }
   })
 
   return [
-    ...intervals,
     { name: "Easy run", detail: "3x/wk ~50 min", pace: fkp * 1.33, rest: "—", zone: "easy" as const },
     { name: "Long run", detail: "1x/wk ~75 min", pace: fkp * 1.38, rest: "—", zone: "easy" as const },
+    ...intervals,
   ]
+}
+
+export interface PaceZones {
+  threshold: number
+  short: [number, number]
+  medium: [number, number]
+  long: [number, number]
+  easyMax: number
+}
+
+export function getPaceZones(fkp: number): PaceZones {
+  const cv = fkp * 1.02
+  return {
+    threshold: cv,
+    short: [cv * 1.03, cv * 1.08],
+    medium: [cv * 1.07, cv * 1.11],
+    long: [cv * 1.10, cv * 1.14],
+    easyMax: fkp * 1.38,
+  }
 }
 
 export function hrRange(zone: WorkoutZone, hr: HRZones): string {

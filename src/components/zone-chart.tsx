@@ -7,12 +7,12 @@ interface ZoneChartProps {
 }
 
 const chartConfig = {
-  rest: { label: "Rest", color: "var(--color-zone-teal)" },
-  belowEasy: { label: "Below easy", color: "var(--color-muted)" },
-  easy: { label: "Easy", color: "var(--color-zone-blue)" },
-  subT: { label: "Sub-T", color: "var(--color-zone-amber)" },
-  upper: { label: "Upper sub-T", color: "var(--color-zone-coral)" },
-  danger: { label: "Danger", color: "var(--color-zone-red)" },
+  rest: { label: "Rest", color: "var(--color-chart-rest)" },
+  belowEasy: { label: "Below easy", color: "var(--color-chart-below-easy)" },
+  easy: { label: "Easy", color: "var(--color-chart-easy)" },
+  subT: { label: "Sub-T", color: "var(--color-chart-sub-highlight)" },
+  upper: { label: "Upper sub-T", color: "var(--color-chart-upper-highlight)" },
+  danger: { label: "Danger", color: "var(--color-chart-danger-highlight)" },
 } satisfies ChartConfig
 
 export function ZoneChart({ hr }: ZoneChartProps) {
@@ -63,16 +63,16 @@ export function ZoneChart({ hr }: ZoneChartProps) {
 
       <div className="flex flex-wrap gap-3.5 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-zone-blue" /> Easy / long run
+          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "var(--color-chart-easy)" }} /> Easy / long run
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-zone-amber" /> Sub-threshold
+          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "var(--color-chart-sub-highlight)" }} /> Sub-threshold
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-zone-coral" /> Upper sub-T
+          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "var(--color-chart-upper-highlight)" }} /> Upper sub-T
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-zone-red" /> Danger
+          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "var(--color-chart-danger-highlight)" }} /> Danger
         </span>
       </div>
     </div>
