@@ -1,9 +1,9 @@
 import { useState } from "react"
-import { type InputMode, type WkMode, get5kPace, getHR, getWorkouts, fmtPace } from "@/lib/calculator"
+import { type InputMode, get5kPace, getHR, getPaceZones, fmtPace } from "@/lib/calculator"
 import { RaceInput } from "@/components/race-input"
 import { HeartRateInput } from "@/components/heart-rate-input"
 import { MetricCards } from "@/components/metric-cards"
-import { WorkoutTable } from "@/components/workout-table"
+import { PaceCard } from "@/components/pace-card"
 import { ZoneChart } from "@/components/zone-chart"
 import { ZoneCards } from "@/components/zone-cards"
 
@@ -12,7 +12,6 @@ export default function CalculatorPage() {
   const [inpA, setInpA] = useState(24)
   const [inpB, setInpB] = useState(30)
   const [mhr, setMhr] = useState(208)
-  const [wkMode, setWkMode] = useState<WkMode>("dist")
 
   const handleModeChange = (mode: InputMode) => {
     setInputMode(mode)
@@ -29,7 +28,7 @@ export default function CalculatorPage() {
 
   const fkp = get5kPace(inputMode, inpA, inpB)
   const hr = getHR(mhr)
-  const workouts = getWorkouts(fkp, wkMode)
+  const paceZones = getPaceZones(fkp)
 
   const paceDisplay = inputMode === "20min"
     ? `${(inpA + inpB / 100).toFixed(2)} km`
@@ -61,7 +60,7 @@ export default function CalculatorPage() {
       </div>
 
       <MetricCards hr={hr} />
-      <WorkoutTable wkMode={wkMode} workouts={workouts} hr={hr} onWkModeChange={setWkMode} />
+      <PaceCard paceZones={paceZones} />
       <ZoneChart hr={hr} />
       <ZoneCards hr={hr} />
 
