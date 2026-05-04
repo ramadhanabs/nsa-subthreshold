@@ -1,7 +1,12 @@
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
+import { DatabaseServiceLive } from "./services/Database"
+import { runMigrations } from "./migrations"
 
 const main = Effect.gen(function* () {
+  yield* runMigrations
   console.log("NSA Backend starting on port 3002...")
 })
 
-Effect.runPromise(main)
+const MainLive = DatabaseServiceLive
+
+Effect.runPromise(main.pipe(Effect.provide(MainLive)))
