@@ -1,3 +1,4 @@
+import { Heart } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import type { HRZones } from "@/lib/calculator"
@@ -12,7 +13,10 @@ export function HeartRateInput({ mhr, hr, onMhrChange }: HeartRateInputProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium">Heart rate input</CardTitle>
+        <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+          <Heart size={14} className="text-muted-foreground" />
+          Heart rate input
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center gap-2">

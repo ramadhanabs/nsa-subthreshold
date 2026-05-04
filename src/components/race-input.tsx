@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Timer } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -72,7 +73,10 @@ export function RaceInput({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium">Race / test input</CardTitle>
+        <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+          <Timer size={14} className="text-muted-foreground" />
+          Race / test input
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex gap-1.5">

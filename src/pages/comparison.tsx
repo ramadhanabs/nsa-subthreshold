@@ -123,12 +123,12 @@ function shiftCurve(s: number, col: string, op: number) {
 
 function mkLT1(x: number, op: number, c: ReturnType<typeof getColors>) {
   return `<line x1="${x}" y1="20" x2="${x}" y2="190" stroke="${c.blue}" stroke-width="0.5" stroke-dasharray="3 2" opacity="${op * 0.4}"/>` +
-    `<text class="label-text" x="${x}" y="208" text-anchor="middle" fill="${c.blue}" opacity="${op}">LT1</text>`
+    `<text class="label-text" x="${x}" y="16" text-anchor="middle" fill="${c.blue}" opacity="${op}">LT1</text>`
 }
 
 function mkLT2(x: number, op: number, label: string, c: ReturnType<typeof getColors>) {
   return `<line x1="${x}" y1="20" x2="${x}" y2="190" stroke="${c.red}" stroke-width="0.5" stroke-dasharray="3 2" opacity="${op * 0.4}"/>` +
-    `<text class="label-text" x="${x}" y="216" text-anchor="middle" fill="${c.red}" opacity="${op}">${label}</text>`
+    `<text class="label-text" x="${x}" y="16" text-anchor="middle" fill="${c.red}" opacity="${op}">${label}</text>`
 }
 
 function nsaZone(x1: number, x2: number, op: number, c: ReturnType<typeof getColors>) {
@@ -200,6 +200,62 @@ function drawChart(el: SVGSVGElement, s: Record<string, number | string | boolea
   el.innerHTML = h
 }
 
+function drawCombinedChart(el: SVGSVGElement, nsaS: Record<string, number | string | boolean>, vo2S: Record<string, number | string | boolean>) {
+  const c = getColors()
+  let h = mkDefs() + axes(c)
+
+  // baseline (use NSA's opacity since they're the same)
+  h += baseCurve(nsaS.baseOp as number, nsaS.baseDash as boolean, c)
+
+  // NSA zones
+  if ((nsaS.nzOp as number) > 0.01) h += nsaZone(Math.round(nsaS.nzX1 as number), Math.round(nsaS.nzX2 as number), nsaS.nzOp as number, c)
+  // VO2 zones
+  if ((vo2S.vzOp as number) > 0.01) h += vo2Zone(Math.round(vo2S.vzX1 as number), Math.round(vo2S.vzX2 as number), vo2S.vzOp as number, c)
+
+  // NSA shifted curve
+  if ((nsaS.curveOp as number) > 0.01) {
+    h += shiftCurve(nsaS.shift as number, c.teal, nsaS.curveOp as number)
+  }
+  // VO2 shifted curve
+  if ((vo2S.curveOp as number) > 0.01) {
+    h += shiftCurve(vo2S.shift as number, c.red, vo2S.curveOp as number)
+  }
+
+  // LT markers
+  if ((nsaS.lt1Op as number) > 0.01) h += mkLT1(130, nsaS.lt1Op as number, c)
+  if ((nsaS.oldLt2Op as number) > 0.01) h += mkLT2(210, nsaS.oldLt2Op as number, "Old", c)
+
+  // NSA new LT2
+  if ((nsaS.curveOp as number) > 0.01 && Math.round(nsaS.lt2x as number) !== 210) {
+    h += `<line x1="${Math.round(nsaS.lt2x as number)}" y1="20" x2="${Math.round(nsaS.lt2x as number)}" y2="190" stroke="${c.teal}" stroke-width="0.5" stroke-dasharray="3 2" opacity="${(nsaS.lt2Op as number) * 0.4}"/>`
+    h += `<text class="label-text" x="${Math.round(nsaS.lt2x as number)}" y="16" text-anchor="middle" fill="${c.teal}" opacity="${nsaS.lt2Op}">NSA</text>`
+  }
+  // VO2 new LT2
+  if ((vo2S.curveOp as number) > 0.01 && Math.round(vo2S.lt2x as number) !== 210) {
+    h += `<line x1="${Math.round(vo2S.lt2x as number)}" y1="20" x2="${Math.round(vo2S.lt2x as number)}" y2="190" stroke="${c.red}" stroke-width="0.5" stroke-dasharray="3 2" opacity="${(vo2S.lt2Op as number) * 0.4}"/>`
+    h += `<text class="label-text" x="${Math.round(vo2S.lt2x as number)}" y="16" text-anchor="middle" fill="${c.red}" opacity="${vo2S.lt2Op}">VO2</text>`
+  }
+
+  // Original LT2 if no shift yet
+  if ((nsaS.curveOp as number) <= 0.01) {
+    h += mkLT2(210, nsaS.lt2Op as number, nsaS.lt2Label as string, c)
+  }
+
+  // Dots
+  if ((nsaS.dotOp as number) > 0.05) h += dot(Math.round(nsaS.dotX as number), Math.round(nsaS.dotY as number), c.amber, nsaS.dotOp as number)
+  if ((vo2S.dotOp as number) > 0.05) h += dot(Math.round(vo2S.dotX as number), Math.round(vo2S.dotY as number), c.red, vo2S.dotOp as number)
+
+  // Arrows
+  if ((nsaS.arrLen as number) > 2) h += arrow(212, 196, Math.round(nsaS.arrLen as number), c.teal, 0.7)
+  if ((vo2S.arrLen as number) > 2) h += arrow(212, 204, Math.round(vo2S.arrLen as number), c.red, 0.7)
+
+  // Badges
+  if ((nsaS.badgeOp as number) > 0.05) h += badge(36, 26, 96, "+42 NSA", c.tealT, nsaS.badgeOp as number, c)
+  if ((vo2S.badgeOp as number) > 0.05) h += badge(36, 52, 96, "+28 VO2", c.redT, vo2S.badgeOp as number, c)
+
+  el.innerHTML = h
+}
+
 /* ─── animation helpers ─── */
 
 function lerp(a: number, b: number, t: number) {
@@ -227,10 +283,12 @@ function lerpState(
 const TOTAL = 6
 const ANIM_DURATION = 600
 
-export default function ComparisonPage() {
+export default function ComparisonPage({ embedded }: { embedded?: boolean } = {}) {
   const [phase, setPhase] = useState(0)
+  const [chartView, setChartView] = useState<"split" | "combined">("split")
   const nsaRef = useRef<SVGSVGElement>(null)
   const vo2Ref = useRef<SVGSVGElement>(null)
+  const comboRef = useRef<SVGSVGElement>(null)
   const animFrameRef = useRef<number | null>(null)
   const prevPhaseRef = useRef(0)
 
@@ -240,6 +298,9 @@ export default function ComparisonPage() {
       drawChart(nsaRef.current, phaseData[0].nsa as unknown as Record<string, number | string | boolean>, "nsa")
       drawChart(vo2Ref.current, phaseData[0].vo2 as unknown as Record<string, number | string | boolean>, "vo2")
     }
+    if (comboRef.current) {
+      drawCombinedChart(comboRef.current, phaseData[0].nsa as unknown as Record<string, number | string | boolean>, phaseData[0].vo2 as unknown as Record<string, number | string | boolean>)
+    }
   }, [])
 
   /* re-draw on theme change (MutationObserver on <html> class) */
@@ -248,6 +309,9 @@ export default function ComparisonPage() {
       if (nsaRef.current && vo2Ref.current) {
         drawChart(nsaRef.current, phaseData[phase].nsa as unknown as Record<string, number | string | boolean>, "nsa")
         drawChart(vo2Ref.current, phaseData[phase].vo2 as unknown as Record<string, number | string | boolean>, "vo2")
+      }
+      if (comboRef.current) {
+        drawCombinedChart(comboRef.current, phaseData[phase].nsa as unknown as Record<string, number | string | boolean>, phaseData[phase].vo2 as unknown as Record<string, number | string | boolean>)
       }
     })
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
@@ -274,6 +338,7 @@ export default function ComparisonPage() {
 
       if (nsaRef.current) drawChart(nsaRef.current, sNsa, "nsa")
       if (vo2Ref.current) drawChart(vo2Ref.current, sVo2, "vo2")
+      if (comboRef.current) drawCombinedChart(comboRef.current, sNsa, sVo2)
 
       if (raw < 1) {
         animFrameRef.current = requestAnimationFrame(tick)
@@ -313,7 +378,7 @@ export default function ComparisonPage() {
   const cur = info[phase]
 
   return (
-    <div className="max-w-[760px] mx-auto px-5 py-8 pb-12">
+    <div className={embedded ? "" : "max-w-[760px] mx-auto px-5 py-8 pb-12"}>
       {/* header */}
       <header className="text-center mb-10">
         <h1 className="text-2xl font-semibold tracking-tight mb-1">NSA vs VO2max</h1>
@@ -349,10 +414,27 @@ export default function ComparisonPage() {
       <div className="text-lg font-medium tracking-tight mb-1">{cur.t}</div>
       <div className="text-sm text-muted-foreground mb-5 min-h-[40px] max-w-[640px] leading-relaxed">{cur.d}</div>
 
-      {/* chart grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-        {/* NSA card */}
-        <div className="bg-muted rounded-xl p-4 overflow-hidden">
+      {/* Chart view toggle */}
+      <div className="flex items-center gap-2 mb-4">
+        <Button
+          size="sm"
+          variant={chartView === "split" ? "default" : "outline"}
+          onClick={() => setChartView("split")}
+        >
+          Split view
+        </Button>
+        <Button
+          size="sm"
+          variant={chartView === "combined" ? "default" : "outline"}
+          onClick={() => setChartView("combined")}
+        >
+          Combined
+        </Button>
+      </div>
+
+      {/* Split charts */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 ${chartView === "split" ? "" : "hidden"}`}>
+        <div className="rounded-xl p-4 overflow-hidden border border-border bg-gradient-to-b from-background to-muted/50">
           <div className="flex items-center gap-1.5 mb-1.5">
             <div className="w-2.5 h-2.5 rounded-sm bg-zone-teal" />
             <div className="text-sm font-medium">NSA — push from below</div>
@@ -360,9 +442,7 @@ export default function ComparisonPage() {
           <div className="text-xs text-muted-foreground mb-2 min-h-[18px]">{cur.nl}</div>
           <svg ref={nsaRef} viewBox="0 0 320 270" className="w-full" />
         </div>
-
-        {/* VO2max card */}
-        <div className="bg-muted rounded-xl p-4 overflow-hidden">
+        <div className="rounded-xl p-4 overflow-hidden border border-border bg-gradient-to-b from-background to-muted/50">
           <div className="flex items-center gap-1.5 mb-1.5">
             <div className="w-2.5 h-2.5 rounded-sm bg-zone-red" />
             <div className="text-sm font-medium">VO2max — pull from above</div>
@@ -370,6 +450,17 @@ export default function ComparisonPage() {
           <div className="text-xs text-muted-foreground mb-2 min-h-[18px]">{cur.vl}</div>
           <svg ref={vo2Ref} viewBox="0 0 320 270" className="w-full" />
         </div>
+      </div>
+
+      {/* Combined chart */}
+      <div className={`rounded-xl p-4 overflow-hidden border border-border bg-gradient-to-b from-background to-muted/50 mb-5 ${chartView === "combined" ? "" : "hidden"}`}>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="w-2.5 h-2.5 rounded-sm bg-zone-teal" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-zone-red" />
+          <div className="text-sm font-medium">Combined — both approaches overlaid</div>
+        </div>
+        <div className="text-xs text-muted-foreground mb-2 min-h-[18px]">Direct comparison on the same axes</div>
+        <svg ref={comboRef} viewBox="0 0 320 270" className="w-full" />
       </div>
 
       {/* legend */}

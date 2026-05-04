@@ -1,3 +1,4 @@
+import { Gauge } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { type PaceZones, fmtPace } from "@/lib/calculator"
@@ -42,7 +43,8 @@ export function PaceCard({ paceZones }: PaceCardProps) {
     <Card>
       <CardContent className="py-5 px-5 space-y-5">
         <div>
-          <div className="text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground mb-0.5 flex items-center gap-1">
+          <div className="text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground mb-0.5 flex items-center gap-1.5">
+            <Gauge size={13} />
             Threshold Pace
             <Tooltip>
               <TooltipTrigger className="cursor-help"><InfoIcon />

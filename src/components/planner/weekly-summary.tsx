@@ -1,3 +1,5 @@
+import { useState } from "react"
+import { ChevronDown, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface WeeklySummaryProps {
@@ -31,6 +33,7 @@ export function WeeklySummary({
   restDayCount,
   onReset,
 }: WeeklySummaryProps) {
+  const [expanded, setExpanded] = useState(false)
   const empty = totalWeekMin === 0
 
   // Status message logic
@@ -61,140 +64,162 @@ export function WeeklySummary({
     <div className="bg-muted/50 rounded-xl p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold">Weekly summary</h3>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-1.5 lg:pointer-events-none"
+        >
+          <h3 className="text-sm font-semibold flex items-center gap-1.5">
+            <BarChart3 size={14} className="text-muted-foreground" />
+            Weekly summary
+          </h3>
+          <ChevronDown
+            size={14}
+            className={`text-muted-foreground transition-transform duration-200 lg:hidden ${expanded ? "rotate-180" : ""}`}
+          />
+        </button>
         <Button variant="outline" size="sm" onClick={onReset}>
           Reset
         </Button>
       </div>
 
-      {/* Ratio progress bar */}
-      <div className="flex h-6 rounded-md overflow-hidden mb-3">
+      {/* Ratio progress bar — always visible */}
+      <div className="relative h-9 rounded-full bg-muted mb-3">
         {empty ? (
-          <div className="flex w-full items-center justify-center bg-muted text-xs text-muted-foreground">
+          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
             Add sessions to see ratio
           </div>
         ) : (
-          <>
+          <div className="flex h-full items-center gap-1.5 p-1">
             <div
-              className="flex items-center justify-center text-xs font-medium text-white"
+              className="flex h-full items-center justify-center rounded-full border text-[0.7rem] font-medium transition-all duration-500 ease-out animate-pulse"
               style={{
                 width: `${qPct}%`,
-                backgroundColor: "var(--color-session-quality)",
+                backgroundColor: "var(--color-session-quality-bg)",
+                color: "var(--color-session-quality-text)",
+                borderColor: "color-mix(in srgb, var(--color-session-quality) 30%, transparent)",
+                minWidth: qPct > 0 ? 28 : 0,
               }}
             >
-              {qPct > 8 && `Q ${qPct}%`}
+              {qPct > 10 && `Q ${qPct}%`}
             </div>
             <div
-              className="flex items-center justify-center text-xs font-medium text-white"
+              className="flex h-full items-center justify-center rounded-full border text-[0.7rem] font-medium transition-all duration-500 ease-out"
               style={{
                 width: `${ePct}%`,
-                backgroundColor: "var(--color-session-easy)",
+                backgroundColor: "var(--color-session-easy-bg)",
+                color: "var(--color-session-easy-text)",
+                borderColor: "color-mix(in srgb, var(--color-session-easy) 30%, transparent)",
+                minWidth: ePct > 0 ? 28 : 0,
               }}
             >
-              {ePct > 8 && `E+LR ${ePct}%`}
+              {ePct > 10 && `E+LR ${ePct}%`}
             </div>
-          </>
+          </div>
         )}
       </div>
 
-      {/* Status message */}
+      {/* Status message — always visible */}
       <div
         className={`rounded-md px-3 py-1.5 text-xs font-medium mb-3 ${statusClass}`}
       >
         {statusText}
       </div>
 
-      {/* Stat cards row 1 */}
-      <div className="grid grid-cols-4 gap-2">
-        <div className="bg-muted rounded-lg px-3 py-2.5">
-          <div className="text-[0.7rem] text-muted-foreground mb-0.5">
-            Quality work
+      {/* Collapsible content — toggled on mobile, always open on lg */}
+      <div className={`${expanded ? "block" : "hidden"} lg:block`}>
+        {/* Stat cards row 1 */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <div className="bg-muted rounded-lg px-3 py-2.5">
+            <div className="text-[0.7rem] text-muted-foreground mb-0.5">
+              Quality work
+            </div>
+            <div className="text-xl font-medium font-mono">
+              {totalQWorkMin}
+              <span className="text-xs font-normal text-muted-foreground">m</span>
+            </div>
+            <div className="text-[0.65rem] text-muted-foreground">
+              sub-T + rest
+            </div>
           </div>
-          <div className="text-xl font-medium font-mono">
-            {totalQWorkMin}
-            <span className="text-xs font-normal text-muted-foreground">m</span>
+          <div className="bg-muted rounded-lg px-3 py-2.5">
+            <div className="text-[0.7rem] text-muted-foreground mb-0.5">
+              Easy total
+            </div>
+            <div className="text-xl font-medium font-mono">
+              {totalEasyAll}
+              <span className="text-xs font-normal text-muted-foreground">m</span>
+            </div>
+            <div className="text-[0.65rem] text-muted-foreground">
+              runs + WU/CD + LR
+            </div>
           </div>
-          <div className="text-[0.65rem] text-muted-foreground">
-            sub-T + rest
+          <div className="bg-muted rounded-lg px-3 py-2.5">
+            <div className="text-[0.7rem] text-muted-foreground mb-0.5">
+              WU/CD from Q
+            </div>
+            <div className="text-xl font-medium font-mono">
+              {totalQWuCdMin}
+              <span className="text-xs font-normal text-muted-foreground">m</span>
+            </div>
+            <div className="text-[0.65rem] text-muted-foreground">
+              counts as easy
+            </div>
+          </div>
+          <div className="bg-muted rounded-lg px-3 py-2.5">
+            <div className="text-[0.7rem] text-muted-foreground mb-0.5">
+              Sub-T total
+            </div>
+            <div className="text-xl font-medium font-mono">
+              {totalSubT}
+              <span className="text-xs font-normal text-muted-foreground">m</span>
+            </div>
+            <div className="text-[0.65rem] text-muted-foreground">work only</div>
           </div>
         </div>
-        <div className="bg-muted rounded-lg px-3 py-2.5">
-          <div className="text-[0.7rem] text-muted-foreground mb-0.5">
-            Easy total
-          </div>
-          <div className="text-xl font-medium font-mono">
-            {totalEasyAll}
-            <span className="text-xs font-normal text-muted-foreground">m</span>
-          </div>
-          <div className="text-[0.65rem] text-muted-foreground">
-            runs + WU/CD + LR
-          </div>
-        </div>
-        <div className="bg-muted rounded-lg px-3 py-2.5">
-          <div className="text-[0.7rem] text-muted-foreground mb-0.5">
-            WU/CD from Q
-          </div>
-          <div className="text-xl font-medium font-mono">
-            {totalQWuCdMin}
-            <span className="text-xs font-normal text-muted-foreground">m</span>
-          </div>
-          <div className="text-[0.65rem] text-muted-foreground">
-            counts as easy
-          </div>
-        </div>
-        <div className="bg-muted rounded-lg px-3 py-2.5">
-          <div className="text-[0.7rem] text-muted-foreground mb-0.5">
-            Sub-T total
-          </div>
-          <div className="text-xl font-medium font-mono">
-            {totalSubT}
-            <span className="text-xs font-normal text-muted-foreground">m</span>
-          </div>
-          <div className="text-[0.65rem] text-muted-foreground">work only</div>
-        </div>
-      </div>
 
-      {/* Stat cards row 2 */}
-      <div className="grid grid-cols-4 gap-2 mt-2">
-        <div className="bg-muted rounded-lg px-3 py-2.5">
-          <div className="text-[0.7rem] text-muted-foreground mb-0.5">
-            Total week
+        {/* Stat cards row 2 */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
+          <div className="bg-muted rounded-lg px-3 py-2.5">
+            <div className="text-[0.7rem] text-muted-foreground mb-0.5">
+              Total week
+            </div>
+            <div className="text-xl font-medium font-mono">
+              {totalWeekMin}
+              <span className="text-xs font-normal text-muted-foreground">m</span>
+            </div>
           </div>
-          <div className="text-xl font-medium font-mono">
-            {totalWeekMin}
-            <span className="text-xs font-normal text-muted-foreground">m</span>
+          <div className="bg-muted rounded-lg px-3 py-2.5">
+            <div className="text-[0.7rem] text-muted-foreground mb-0.5">
+              Weekly hours
+            </div>
+            <div className="text-xl font-medium font-mono">
+              {(totalWeekMin / 60).toFixed(1)}
+              <span className="text-xs font-normal text-muted-foreground">h</span>
+            </div>
+          </div>
+          <div className="bg-muted rounded-lg px-3 py-2.5">
+            <div className="text-[0.7rem] text-muted-foreground mb-0.5">
+              Q sessions
+            </div>
+            <div className="text-xl font-medium font-mono">{qDayCount}</div>
+          </div>
+          <div className="bg-muted rounded-lg px-3 py-2.5">
+            <div className="text-[0.7rem] text-muted-foreground mb-0.5">
+              Run days
+            </div>
+            <div className="text-xl font-medium font-mono">
+              {7 - restDayCount}
+            </div>
           </div>
         </div>
-        <div className="bg-muted rounded-lg px-3 py-2.5">
-          <div className="text-[0.7rem] text-muted-foreground mb-0.5">
-            Weekly hours
-          </div>
-          <div className="text-xl font-medium font-mono">
-            {(totalWeekMin / 60).toFixed(1)}
-            <span className="text-xs font-normal text-muted-foreground">h</span>
-          </div>
-        </div>
-        <div className="bg-muted rounded-lg px-3 py-2.5">
-          <div className="text-[0.7rem] text-muted-foreground mb-0.5">
-            Q sessions
-          </div>
-          <div className="text-xl font-medium font-mono">{qDayCount}</div>
-        </div>
-        <div className="bg-muted rounded-lg px-3 py-2.5">
-          <div className="text-[0.7rem] text-muted-foreground mb-0.5">
-            Run days
-          </div>
-          <div className="text-xl font-medium font-mono">
-            {7 - restDayCount}
-          </div>
-        </div>
-      </div>
 
-      {/* Footer tip */}
-      <p className="text-xs text-muted-foreground mt-3">
-        Standard NSA patterns: E-Q-E-Q-E-Q-LR or R-Q-E-Q-E-Q-LR. Never place
-        two Q days back-to-back. Target 75% easy+LR / 25% quality by time.
-      </p>
+        {/* Footer tip */}
+        <p className="text-xs text-muted-foreground mt-3">
+          Standard NSA patterns: E-Q-E-Q-E-Q-LR or R-Q-E-Q-E-Q-LR. Never place
+          two Q days back-to-back. Target 75% easy+LR / 25% quality by time.
+        </p>
+      </div>
     </div>
   )
 }

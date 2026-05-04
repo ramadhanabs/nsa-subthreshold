@@ -1,5 +1,7 @@
+import { CalendarDays } from "lucide-react"
 import { DaySlot } from "@/components/planner/day-slot"
 import { SESSION_META, type DaySlotData, type SessionType } from "@/lib/planner-data"
+import type { PaceZones } from "@/lib/calculator"
 
 interface WeekGridProps {
   week: DaySlotData[]
@@ -8,8 +10,8 @@ interface WeekGridProps {
   onDragOver: (index: number) => void
   onDragLeave: (index: number) => void
   onClear: (index: number) => void
-  onCycle: (index: number) => void
   onTypeDragStart: (type: SessionType) => void
+  onSlotDragStart: (index: number) => void
   // Easy
   easyInputs: Record<string, number>
   onEasyMinChange: (day: string, min: number) => void
@@ -26,6 +28,7 @@ interface WeekGridProps {
   onWuChange: (day: string, v: number) => void
   onCdChange: (day: string, v: number) => void
   onResetWuCd: (day: string) => void
+  paceZones: PaceZones | null
 }
 
 const CHIP_TYPES: SessionType[] = ["easy", "long", "rest"]
@@ -37,8 +40,8 @@ export function WeekGrid({
   onDragOver,
   onDragLeave,
   onClear,
-  onCycle,
   onTypeDragStart,
+  onSlotDragStart,
   easyInputs,
   onEasyMinChange,
   strides,
@@ -52,12 +55,14 @@ export function WeekGrid({
   onWuChange,
   onCdChange,
   onResetWuCd,
+  paceZones,
 }: WeekGridProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 bg-muted/50 rounded-xl p-4">
       {/* Draggable session type chips */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <CalendarDays size={13} className="text-muted-foreground" />
           Drag to fill non-Q days:
         </span>
         {CHIP_TYPES.map((type) => (
@@ -78,7 +83,7 @@ export function WeekGrid({
       </div>
 
       {/* 7-day grid */}
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-7">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-1.5">
         {week.map((slot, i) => (
           <DaySlot
             key={slot.day}
@@ -89,7 +94,7 @@ export function WeekGrid({
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onClear={onClear}
-            onCycle={onCycle}
+            onSlotDragStart={onSlotDragStart}
             easyMin={easyInputs[slot.day] || 40}
             onEasyMinChange={onEasyMinChange}
             hasStrides={!!strides[slot.day]}
@@ -103,6 +108,7 @@ export function WeekGrid({
             onWuChange={onWuChange}
             onCdChange={onCdChange}
             onResetWuCd={onResetWuCd}
+            paceZones={paceZones}
           />
         ))}
       </div>

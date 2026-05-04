@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { type InputMode, get5kPace, getHR, getPaceZones, fmtPace } from "@/lib/calculator"
 import { RaceInput } from "@/components/race-input"
 import { HeartRateInput } from "@/components/heart-rate-input"
@@ -29,6 +29,10 @@ export default function CalculatorPage() {
   const fkp = get5kPace(inputMode, inpA, inpB)
   const hr = getHR(mhr)
   const paceZones = getPaceZones(fkp)
+
+  useEffect(() => {
+    localStorage.setItem("nsa-5k-pace", String(fkp))
+  }, [fkp])
 
   const paceDisplay = inputMode === "20min"
     ? `${(inpA + inpB / 100).toFixed(2)} km`

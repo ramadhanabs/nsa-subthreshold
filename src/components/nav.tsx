@@ -13,10 +13,17 @@ export function Nav() {
   }, [dark])
 
   return (
-    <nav className="max-w-[740px] mx-auto px-5 pt-4 pb-2 flex items-center gap-4 text-sm">
+    <nav className="max-w-[1280px] mx-auto px-5 pt-4 pb-2 flex items-center gap-4 text-sm">
+      <Link to="/" className="shrink-0">
+        <img
+          src={dark ? "/logo-light.png" : "/logo-dark.png"}
+          alt="NSA"
+          className="h-5"
+        />
+      </Link>
       <Link
-        to="/"
-        className={pathname === "/" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground transition-colors"}
+        to="/calculator"
+        className={pathname === "/calculator" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground transition-colors"}
       >
         Calculator
       </Link>

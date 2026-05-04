@@ -210,6 +210,23 @@
   animation: shake 0.3s ease-in-out;
 }
 
+/* SVG chart text classes */
+svg text {
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+svg .ax-text {
+  font-size: 10px;
+  fill: var(--muted-foreground);
+}
+svg .label-text {
+  font-size: 10px;
+  font-weight: 500;
+}
+svg .badge-text {
+  font-size: 10px;
+  font-weight: 500;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -220,4 +237,24 @@
   html {
     @apply font-sans;
     }
+
+  /* Thin monochromatic scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
 }

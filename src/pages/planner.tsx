@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { DefaultWuCd } from "@/components/planner/default-wu-cd"
+import { useState, useMemo, useEffect } from "react"
+import { getPaceZones } from "@/lib/calculator"
 import { QualityPalette } from "@/components/planner/quality-palette"
 import { WeekGrid } from "@/components/planner/week-grid"
 import { WeeklySummary } from "@/components/planner/weekly-summary"
@@ -23,6 +23,22 @@ export default function PlannerPage() {
   const [defaultCd, setDefaultCd] = useState(10)
   const [wuCd, setWuCd] = useState<Record<string, { wu?: number; cd?: number }>>({})
 
+  // Scroll tracking (debug)
+  const [scrollY, setScrollY] = useState(0)
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY)
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  // Pace zones from calculator (persisted in localStorage)
+  const paceZones = useMemo(() => {
+    const stored = localStorage.getItem("nsa-5k-pace")
+    if (!stored) return null
+    const fkp = Number(stored)
+    return isNaN(fkp) ? null : getPaceZones(fkp)
+  }, [])
+
   // WU/CD helpers
   const getWu = (day: string) => wuCd[day]?.wu ?? defaultWu
   const getCd = (day: string) => wuCd[day]?.cd ?? defaultCd
@@ -40,12 +56,56 @@ export default function PlannerPage() {
     })
 
   // Drag handlers
-  const handleQualityDragStart = (template: QTemplate) =>
+  const [dragSourceIndex, setDragSourceIndex] = useState<number | null>(null)
+
+  const handleQualityDragStart = (template: QTemplate) => {
+    setDragSourceIndex(null)
     setDragData({ type: "quality", template })
-  const handleTypeDragStart = (type: SessionType) =>
+  }
+  const handleTypeDragStart = (type: SessionType) => {
+    setDragSourceIndex(null)
     setDragData({ type, template: null })
+  }
+  const handleSlotDragStart = (index: number) => {
+    setDragSourceIndex(index)
+    setDragData(null)
+  }
 
   const handleDrop = (dayIdx: number) => {
+    // Swap two day slots
+    if (dragSourceIndex !== null && dragSourceIndex !== dayIdx) {
+      setWeek((prev) => {
+        const next = [...prev]
+        const srcSlot = { ...next[dragSourceIndex] }
+        const dstSlot = { ...next[dayIdx] }
+        next[dayIdx] = { ...srcSlot, day: next[dayIdx].day }
+        next[dragSourceIndex] = { ...dstSlot, day: next[dragSourceIndex].day }
+        return next
+      })
+      // Swap associated state (easyInputs, strides, wuCd)
+      const srcDay = week[dragSourceIndex].day
+      const dstDay = week[dayIdx].day
+      setEasyInputs((p) => {
+        const n = { ...p }
+        const tmp = n[srcDay]; n[srcDay] = n[dstDay]; n[dstDay] = tmp
+        return n
+      })
+      setStrides((p) => {
+        const n = { ...p }
+        const tmp = n[srcDay]; n[srcDay] = n[dstDay]; n[dstDay] = tmp
+        return n
+      })
+      setWuCd((p) => {
+        const n = { ...p }
+        const tmp = n[srcDay]; n[srcDay] = n[dstDay]; n[dstDay] = tmp
+        return n
+      })
+      setDragSourceIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+
+    // Drop template or session type onto a day
     if (!dragData) return
     setWeek((prev) => {
       const next = [...prev]
@@ -57,6 +117,7 @@ export default function PlannerPage() {
       return next
     })
     setDragData(null)
+    setDragSourceIndex(null)
     setDragOverIndex(null)
   }
 
@@ -64,18 +125,6 @@ export default function PlannerPage() {
     setWeek((prev) => {
       const next = [...prev]
       next[dayIdx] = { ...next[dayIdx], type: null, template: null }
-      return next
-    })
-  }
-
-  const handleCycle = (dayIdx: number) => {
-    const types: (SessionType | null)[] = [null, "easy", "long", "rest"]
-    setWeek((prev) => {
-      const next = [...prev]
-      const cur = next[dayIdx].type
-      if (cur === "quality") return next
-      const idx = types.indexOf(cur)
-      next[dayIdx] = { ...next[dayIdx], type: types[(idx + 1) % types.length], template: null }
       return next
     })
   }
@@ -115,66 +164,96 @@ export default function PlannerPage() {
   }
 
   return (
-    <div className="max-w-[740px] mx-auto px-5 py-8 pb-12 space-y-5">
-      <header>
+    <div className="max-w-[1280px] mx-auto px-5 py-8 pb-[240px] lg:pb-12">
+      <header className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Weekly Planner</h1>
         <p className="text-sm text-muted-foreground">
           Plan your NSA training week — drag quality sessions to days, fill easy and long runs.
         </p>
       </header>
 
-      <DefaultWuCd
-        defaultWu={defaultWu}
-        defaultCd={defaultCd}
-        onDefaultWuChange={setDefaultWu}
-        onDefaultCdChange={setDefaultCd}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
+        {/* Left panel — summary + settings */}
+        <div className="space-y-4">
+          <WeeklySummary
+            totalQWorkMin={totalQWorkMin}
+            totalEasyAll={totalEasyAll}
+            totalQWuCdMin={totalQWuCdMin}
+            totalSubT={totalSubT}
+            totalWeekMin={totalWeekMin}
+            qPct={qPct}
+            ePct={ePct}
+            ratioOk={ratioOk}
+            ratioClose={ratioClose}
+            neededEasyMin={neededEasyMin}
+            qDayCount={qDays.length}
+            restDayCount={rDays.length}
+            onReset={resetAll}
+          />
 
-      <QualityPalette
-        catFilter={catFilter}
-        onCatFilterChange={setCatFilter}
-        onDragStart={handleQualityDragStart}
-      />
+        </div>
 
-      <WeekGrid
-        week={week}
-        dragOverIndex={dragOverIndex}
-        onDrop={handleDrop}
-        onDragOver={setDragOverIndex}
-        onDragLeave={() => setDragOverIndex(null)}
-        onClear={handleClear}
-        onCycle={handleCycle}
-        onTypeDragStart={handleTypeDragStart}
-        easyInputs={easyInputs}
-        onEasyMinChange={(day, min) => setEasyInputs((p) => ({ ...p, [day]: min }))}
-        strides={strides}
-        onStridesChange={(day, v) => setStrides((p) => ({ ...p, [day]: v }))}
-        longMin={longMin}
-        onLongMinChange={setLongMin}
-        getWu={getWu}
-        getCd={getCd}
-        isWuOverridden={isWuOverridden}
-        isCdOverridden={isCdOverridden}
-        onWuChange={handleWuChange}
-        onCdChange={handleCdChange}
-        onResetWuCd={handleResetWuCd}
-      />
+        {/* Right panel — workout templates */}
+        <div>
+          <QualityPalette
+            catFilter={catFilter}
+            onCatFilterChange={setCatFilter}
+            onDragStart={handleQualityDragStart}
+            defaultWu={defaultWu}
+            defaultCd={defaultCd}
+            onDefaultWuChange={setDefaultWu}
+            onDefaultCdChange={setDefaultCd}
+            paceZones={paceZones}
+          />
+        </div>
+      </div>
 
-      <WeeklySummary
-        totalQWorkMin={totalQWorkMin}
-        totalEasyAll={totalEasyAll}
-        totalQWuCdMin={totalQWuCdMin}
-        totalSubT={totalSubT}
-        totalWeekMin={totalWeekMin}
-        qPct={qPct}
-        ePct={ePct}
-        ratioOk={ratioOk}
-        ratioClose={ratioClose}
-        neededEasyMin={neededEasyMin}
-        qDayCount={qDays.length}
-        restDayCount={rDays.length}
-        onReset={resetAll}
-      />
+      {/* Full-width week grid */}
+      <div className="mt-6">
+        <WeekGrid
+          week={week}
+          dragOverIndex={dragOverIndex}
+          onDrop={handleDrop}
+          onDragOver={setDragOverIndex}
+          onDragLeave={() => setDragOverIndex(null)}
+          onClear={handleClear}
+          onTypeDragStart={handleTypeDragStart}
+          onSlotDragStart={handleSlotDragStart}
+          easyInputs={easyInputs}
+          onEasyMinChange={(day, min) => setEasyInputs((p) => ({ ...p, [day]: min }))}
+          strides={strides}
+          onStridesChange={(day, v) => setStrides((p) => ({ ...p, [day]: v }))}
+          longMin={longMin}
+          onLongMinChange={setLongMin}
+          getWu={getWu}
+          getCd={getCd}
+          isWuOverridden={isWuOverridden}
+          isCdOverridden={isCdOverridden}
+          onWuChange={handleWuChange}
+          onCdChange={handleCdChange}
+          onResetWuCd={handleResetWuCd}
+          paceZones={paceZones}
+        />
+      </div>
+
+      {/* Floating weekly summary — mobile only, after scroll threshold */}
+      <div className={`fixed bottom-0 left-0 right-0 lg:hidden z-50 bg-background/90 backdrop-blur-sm border-t border-border/50 shadow-[0_-4px_20px_rgba(0,0,0,0.15)] p-3 max-h-[50vh] overflow-y-auto transition-transform duration-300 ${scrollY >= 370 ? "translate-y-0" : "translate-y-full"}`}>
+        <WeeklySummary
+          totalQWorkMin={totalQWorkMin}
+          totalEasyAll={totalEasyAll}
+          totalQWuCdMin={totalQWuCdMin}
+          totalSubT={totalSubT}
+          totalWeekMin={totalWeekMin}
+          qPct={qPct}
+          ePct={ePct}
+          ratioOk={ratioOk}
+          ratioClose={ratioClose}
+          neededEasyMin={neededEasyMin}
+          qDayCount={qDays.length}
+          restDayCount={rDays.length}
+          onReset={resetAll}
+        />
+      </div>
     </div>
   )
 }

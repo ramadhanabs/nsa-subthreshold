@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48">
+  <!-- nsa logo — black, for light backgrounds -->
+  <defs>
+    <clipPath id="a-hole">
+      <path d="M0 0h160v48H0z"/>
+      <rect x="96" y="11" width="20" height="9" rx="1"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#a-hole)" fill="#0a0a0a" transform="skewX(-14) translate(16,0)">
+    <!-- n -->
+    <polygon points="0,40 0,0 8,0 8,5 24,0 32,0 32,40 24,40 24,9 8,13 8,40"/>
+    <!-- s -->
+    <polygon points="40,0 76,0 76,8 48,8 48,16 76,16 76,40 40,40 40,32 68,32 68,24 40,24"/>
+    <!-- a (outer) -->
+    <polygon points="84,0 124,0 124,40 116,40 116,24 92,24 92,40 84,40"/>
+  </g>
+</svg>
