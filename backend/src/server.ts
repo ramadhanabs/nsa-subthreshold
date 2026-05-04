@@ -1,5 +1,7 @@
 import { Effect } from "effect"
 import { AuthService } from "./services/Auth"
+import { CalculatorService } from "./services/Calculator"
+import { PlannerService } from "./services/Planner"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,8 +18,20 @@ const jsonResponse = (body: unknown, status = 200) =>
 const errorResponse = (message: string, status: number) =>
   jsonResponse({ error: message }, status)
 
+const requireAuth = async (req: Request, auth: Effect.Effect.Success<typeof AuthService>) => {
+  const authHeader = req.headers.get("Authorization")
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { error: errorResponse("Missing or invalid Authorization header", 401) }
+  }
+  const token = authHeader.slice(7)
+  const user = await Effect.runPromise(auth.verify(token))
+  return { user }
+}
+
 export const startServer = Effect.gen(function* () {
   const auth = yield* AuthService
+  const calculator = yield* CalculatorService
+  const planner = yield* PlannerService
 
   const server = Bun.serve({
     port: 3002,
@@ -68,6 +82,66 @@ export const startServer = Effect.gen(function* () {
             auth.verify(token)
           ).catch((e) => { throw e })
           return jsonResponse(result)
+        }
+
+        // POST /api/calculator
+        if (req.method === "POST" && pathname === "/api/calculator") {
+          const authResult = await requireAuth(req, auth)
+          if ("error" in authResult) return authResult.error
+          const { input_mode, input_a, input_b, max_hr } = (await req.json()) as any
+          const result = await Effect.runPromise(
+            calculator.save(authResult.user.id, { input_mode, input_a, input_b, max_hr })
+          )
+          return jsonResponse(result)
+        }
+
+        // GET /api/calculator or /api/calculator/:id
+        if (req.method === "GET" && pathname.startsWith("/api/calculator")) {
+          const authResult = await requireAuth(req, auth)
+          if ("error" in authResult) return authResult.error
+          const idSegment = pathname.slice("/api/calculator".length)
+          if (idSegment && idSegment !== "/") {
+            const id = idSegment.startsWith("/") ? idSegment.slice(1) : idSegment
+            const result = await Effect.runPromise(
+              calculator.getById(authResult.user.id, id)
+            )
+            if (!result) return errorResponse("Not found", 404)
+            return jsonResponse(result)
+          }
+          const results = await Effect.runPromise(
+            calculator.list(authResult.user.id)
+          )
+          return jsonResponse(results)
+        }
+
+        // POST /api/planner
+        if (req.method === "POST" && pathname === "/api/planner") {
+          const authResult = await requireAuth(req, auth)
+          if ("error" in authResult) return authResult.error
+          const { week_data, default_wu, default_cd, name } = (await req.json()) as any
+          const result = await Effect.runPromise(
+            planner.save(authResult.user.id, { week_data, default_wu, default_cd, name })
+          )
+          return jsonResponse(result)
+        }
+
+        // GET /api/planner or /api/planner/:id
+        if (req.method === "GET" && pathname.startsWith("/api/planner")) {
+          const authResult = await requireAuth(req, auth)
+          if ("error" in authResult) return authResult.error
+          const idSegment = pathname.slice("/api/planner".length)
+          if (idSegment && idSegment !== "/") {
+            const id = idSegment.startsWith("/") ? idSegment.slice(1) : idSegment
+            const result = await Effect.runPromise(
+              planner.getById(authResult.user.id, id)
+            )
+            if (!result) return errorResponse("Not found", 404)
+            return jsonResponse(result)
+          }
+          const results = await Effect.runPromise(
+            planner.list(authResult.user.id)
+          )
+          return jsonResponse(results)
         }
 
         return errorResponse("Not found", 404)
