@@ -19,7 +19,7 @@ export function HeartRateInput({ mhr, hr, onMhrChange }: HeartRateInputProps) {
           <label className="text-xs text-muted-foreground min-w-12">Max HR</label>
           <Slider
             value={[mhr]}
-            onValueChange={([v]) => onMhrChange(v)}
+            onValueChange={(v) => onMhrChange(Array.isArray(v) ? v[0] : v)}
             min={180}
             max={215}
             step={1}
