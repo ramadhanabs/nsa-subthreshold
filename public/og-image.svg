@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0a0a0a"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="0" y1="315" x2="1200" y2="315" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+
+  <!-- Logo text "nsa" -->
+  <g fill="#f5f5f5" transform="translate(510, 180) skewX(-14)">
+    <polygon points="0,60 0,0 12,0 12,7.5 36,0 48,0 48,60 36,60 36,13.5 12,19.5 12,60"/>
+    <polygon points="60,0 114,0 114,12 72,12 72,24 114,24 114,60 60,60 60,48 102,48 102,36 60,36"/>
+    <polygon points="126,0 186,0 186,60 174,60 174,36 138,36 138,60 126,60"/>
+    <rect x="138" y="12" width="30" height="12" fill="#0a0a0a"/>
+  </g>
+
+  <!-- Title -->
+  <text x="600" y="310" text-anchor="middle" fill="#f5f5f5" font-family="system-ui, sans-serif" font-size="42" font-weight="600" letter-spacing="-1">
+    Norwegian Singles Approach
+  </text>
+
+  <!-- Description -->
+  <text x="600" y="360" text-anchor="middle" fill="#9ca3af" font-family="system-ui, sans-serif" font-size="20">
+    Sub-threshold training tools for runners
+  </text>
+
+  <!-- Key stats -->
+  <g transform="translate(300, 410)">
+    <text x="0" y="0" text-anchor="middle" fill="#f5f5f5" font-family="ui-monospace, monospace" font-size="28" font-weight="600">75/25</text>
+    <text x="0" y="24" text-anchor="middle" fill="#6b7280" font-family="system-ui, sans-serif" font-size="13">easy / quality</text>
+  </g>
+  <g transform="translate(600, 410)">
+    <text x="0" y="0" text-anchor="middle" fill="#f5f5f5" font-family="ui-monospace, monospace" font-size="28" font-weight="600">3x/week</text>
+    <text x="0" y="24" text-anchor="middle" fill="#6b7280" font-family="system-ui, sans-serif" font-size="13">quality sessions</text>
+  </g>
+  <g transform="translate(900, 410)">
+    <text x="0" y="0" text-anchor="middle" fill="#f5f5f5" font-family="ui-monospace, monospace" font-size="28" font-weight="600">&lt;LT2</text>
+    <text x="0" y="24" text-anchor="middle" fill="#6b7280" font-family="system-ui, sans-serif" font-size="13">always sub-threshold</text>
+  </g>
+
+  <!-- CTA -->
+  <rect x="440" y="490" width="320" height="44" rx="22" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+  <text x="600" y="518" text-anchor="middle" fill="#d1d5db" font-family="system-ui, sans-serif" font-size="15" font-weight="500">
+    Calculate your paces free →
+  </text>
+
+  <!-- URL -->
+  <text x="600" y="590" text-anchor="middle" fill="#4b5563" font-family="system-ui, sans-serif" font-size="14">
+    subthreshold.bagus.icu
+  </text>
+</svg>
