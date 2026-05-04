@@ -4,8 +4,10 @@ import { BrowserRouter, Routes, Route } from "react-router"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Nav } from "@/components/nav"
 import "./index.css"
+import HomePage from "./pages/home"
 import CalculatorPage from "./pages/calculator"
 import PlannerPage from "./pages/planner"
+import GettingStartedPage from "./pages/getting-started"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -13,8 +15,10 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <Nav />
         <Routes>
-          <Route path="/" element={<CalculatorPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/calculator" element={<CalculatorPage />} />
           <Route path="/planner" element={<PlannerPage />} />
+          <Route path="/getting-started" element={<GettingStartedPage />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
