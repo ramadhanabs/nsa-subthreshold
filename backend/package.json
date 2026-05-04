@@ -1,0 +1,19 @@
+{
+  "name": "nsa-backend",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "effect": "^3.14.0",
+    "@effect/platform": "^0.78.0",
+    "@effect/platform-bun": "^0.52.0",
+"jose": "^6.0.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}
