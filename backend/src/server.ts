@@ -2,6 +2,8 @@ import { Effect } from "effect"
 import { AuthService } from "./services/Auth"
 import { CalculatorService } from "./services/Calculator"
 import { PlannerService } from "./services/Planner"
+import { IntervalsService } from "./services/Intervals"
+import { WellnessService } from "./services/Wellness"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +34,8 @@ export const startServer = Effect.gen(function* () {
   const auth = yield* AuthService
   const calculator = yield* CalculatorService
   const planner = yield* PlannerService
+  const intervals = yield* IntervalsService
+  const wellness = yield* WellnessService
 
   const server = Bun.serve({
     port: 3002,
@@ -142,6 +146,42 @@ export const startServer = Effect.gen(function* () {
             planner.list(authResult.user.id)
           )
           return jsonResponse(results)
+        }
+
+        // POST /api/intervals/connect
+        if (req.method === "POST" && pathname === "/api/intervals/connect") {
+          const authResult = await requireAuth(req, auth)
+          if ("error" in authResult) return authResult.error
+          const { athlete_id, api_key } = (await req.json()) as { athlete_id: string; api_key: string }
+          if (!athlete_id || !api_key) {
+            return errorResponse("athlete_id and api_key are required", 400)
+          }
+          await Effect.runPromise(
+            intervals.connect(authResult.user.id, athlete_id, api_key)
+          )
+          return jsonResponse({ ok: true })
+        }
+
+        // POST /api/intervals/sync
+        if (req.method === "POST" && pathname === "/api/intervals/sync") {
+          const authResult = await requireAuth(req, auth)
+          if ("error" in authResult) return authResult.error
+          const synced = await Effect.runPromise(
+            intervals.syncWellness(authResult.user.id)
+          ).catch((e) => { throw e })
+          return jsonResponse({ synced })
+        }
+
+        // GET /api/wellness
+        if (req.method === "GET" && pathname === "/api/wellness") {
+          const authResult = await requireAuth(req, auth)
+          if ("error" in authResult) return authResult.error
+          const from = url.searchParams.get("from") ?? undefined
+          const to = url.searchParams.get("to") ?? undefined
+          const records = await Effect.runPromise(
+            wellness.list(authResult.user.id, from, to)
+          )
+          return jsonResponse(records)
         }
 
         return errorResponse("Not found", 404)

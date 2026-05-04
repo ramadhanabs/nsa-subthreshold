@@ -3,6 +3,8 @@ import { DatabaseServiceLive } from "./services/Database"
 import { AuthServiceLive } from "./services/Auth"
 import { CalculatorServiceLive } from "./services/Calculator"
 import { PlannerServiceLive } from "./services/Planner"
+import { IntervalsServiceLive } from "./services/Intervals"
+import { WellnessServiceLive } from "./services/Wellness"
 import { runMigrations } from "./migrations"
 import { startServer } from "./server"
 
@@ -16,7 +18,9 @@ const MainLive = Layer.mergeAll(
   DatabaseServiceLive,
   AuthServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
   CalculatorServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  PlannerServiceLive.pipe(Layer.provide(DatabaseServiceLive))
+  PlannerServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
+  IntervalsServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
+  WellnessServiceLive.pipe(Layer.provide(DatabaseServiceLive))
 )
 
 Effect.runPromise(main.pipe(Effect.provide(MainLive)))
