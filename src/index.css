@@ -26,6 +26,30 @@
     --color-zone-teal: #0E7A5A;
     --color-zone-teal-bg: #E0F4ED;
     --color-zone-teal-text: #04382E;
+
+    --color-session-quality: #D97706;
+    --color-session-quality-bg: rgba(217, 119, 6, 0.08);
+    --color-session-quality-text: #854F0B;
+    --color-session-easy: #2563EB;
+    --color-session-easy-bg: rgba(37, 99, 235, 0.07);
+    --color-session-easy-text: #1E40AF;
+    --color-session-long: #7C3AED;
+    --color-session-long-bg: rgba(124, 58, 237, 0.07);
+    --color-session-long-text: #5B21B6;
+    --color-session-rest: #6B7280;
+    --color-session-rest-bg: rgba(107, 114, 128, 0.06);
+    --color-session-rest-text: #4B5563;
+
+    --color-chart-rest: rgba(0, 0, 0, 0.08);
+    --color-chart-below-easy: rgba(0, 0, 0, 0.14);
+    --color-chart-easy: rgba(0, 0, 0, 0.22);
+    --color-chart-sub: rgba(0, 0, 0, 0.34);
+    --color-chart-upper: rgba(0, 0, 0, 0.50);
+    --color-chart-danger: rgba(0, 0, 0, 0.70);
+    --color-chart-sub-highlight: rgba(249, 115, 22, 0.7);
+    --color-chart-upper-highlight: rgba(239, 68, 68, 0.6);
+    --color-chart-danger-highlight: rgba(185, 28, 28, 0.8);
+
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -118,6 +142,29 @@
     --color-zone-teal-bg: #0E2E24;
     --color-zone-teal-text: #90E8D0;
 
+    --color-session-quality: #FBBF24;
+    --color-session-quality-bg: rgba(251, 191, 36, 0.10);
+    --color-session-quality-text: #FDE68A;
+    --color-session-easy: #60A5FA;
+    --color-session-easy-bg: rgba(96, 165, 250, 0.10);
+    --color-session-easy-text: #BFDBFE;
+    --color-session-long: #A78BFA;
+    --color-session-long-bg: rgba(167, 139, 250, 0.10);
+    --color-session-long-text: #DDD6FE;
+    --color-session-rest: #9CA3AF;
+    --color-session-rest-bg: rgba(156, 163, 175, 0.08);
+    --color-session-rest-text: #D1D5DB;
+
+    --color-chart-rest: rgba(255, 255, 255, 0.10);
+    --color-chart-below-easy: rgba(255, 255, 255, 0.20);
+    --color-chart-easy: rgba(255, 255, 255, 0.34);
+    --color-chart-sub: rgba(255, 255, 255, 0.50);
+    --color-chart-upper: rgba(255, 255, 255, 0.68);
+    --color-chart-danger: rgba(255, 255, 255, 0.88);
+    --color-chart-sub-highlight: rgba(251, 146, 60, 0.7);
+    --color-chart-upper-highlight: rgba(248, 113, 113, 0.6);
+    --color-chart-danger-highlight: rgba(239, 68, 68, 0.85);
+
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -149,6 +196,18 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+@utility animate-shake {
+  animation: shake 0.3s ease-in-out;
 }
 
 @layer base {
