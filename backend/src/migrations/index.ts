@@ -21,7 +21,7 @@ export const runMigrations = Effect.gen(function* () {
   for (const m of migrations) {
     if (!appliedNames.has(m.name)) {
       m.up(db)
-      db.run("INSERT INTO migrations (name) VALUES (?)", m.name)
+      db.run("INSERT INTO migrations (name) VALUES (?)", [m.name])
       console.log(`Migration applied: ${m.name}`)
     }
   }
