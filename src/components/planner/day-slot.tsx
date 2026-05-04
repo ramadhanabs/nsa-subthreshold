@@ -1,3 +1,5 @@
+import { useDroppable, useDraggable } from "@dnd-kit/core"
+import { CSS } from "@dnd-kit/utilities"
 import { Input } from "@/components/ui/input"
 import { totalSessionMin, type DaySlotData, type QTemplate } from "@/lib/planner-data"
 import { fmtPace, type PaceZones } from "@/lib/calculator"
@@ -5,12 +7,7 @@ import { fmtPace, type PaceZones } from "@/lib/calculator"
 interface DaySlotProps {
   slot: DaySlotData
   index: number
-  isOver: boolean
-  onDrop: (index: number) => void
-  onDragOver: (index: number) => void
-  onDragLeave: (index: number) => void
   onClear: (index: number) => void
-  onSlotDragStart: (index: number) => void
   // Easy run
   easyMin: number
   onEasyMinChange: (day: string, min: number) => void
@@ -140,6 +137,7 @@ function QualityContent({
       {(wuOverridden || cdOverridden) && (
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onResetWuCd(day) }}
           className="text-[0.55rem] text-muted-foreground underline hover:text-foreground"
         >
@@ -156,6 +154,7 @@ function QualityContent({
             min={0}
             max={30}
             value={wu}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             onChange={(e) => onWuChange(day, Number(e.target.value))}
             className={`${NUM_INPUT_CLS} h-6 text-xs`}
@@ -168,6 +167,7 @@ function QualityContent({
             min={0}
             max={30}
             value={cd}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             onChange={(e) => onCdChange(day, Number(e.target.value))}
             className={`${NUM_INPUT_CLS} h-6 text-xs`}
@@ -201,6 +201,7 @@ function EasyContent({
         min={20}
         max={90}
         value={easyMin}
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onChange={(e) => onEasyMinChange(day, Number(e.target.value))}
         className={NUM_INPUT_CLS}
@@ -208,6 +209,7 @@ function EasyContent({
       <p className="mt-1 text-center text-[10px] opacity-50">min</p>
 
       <label
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         className={`mt-3 flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[10px] transition-colors ${
           hasStrides ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "opacity-50"
@@ -242,6 +244,7 @@ function LongContent({
         min={45}
         max={180}
         value={longMin}
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onChange={(e) => onLongMinChange(Number(e.target.value))}
         className={NUM_INPUT_CLS}
@@ -272,12 +275,7 @@ function EmptyContent() {
 export function DaySlot({
   slot,
   index,
-  isOver,
-  onDrop,
-  onDragOver,
-  onDragLeave,
   onClear,
-  onSlotDragStart,
   easyMin,
   onEasyMinChange,
   hasStrides,
@@ -295,6 +293,29 @@ export function DaySlot({
 }: DaySlotProps) {
   const { day, type, template } = slot
 
+  // Droppable target
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `drop-${index}`,
+  })
+
+  // Draggable source (only when slot is filled)
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: `slot-${index}`,
+    data: { type: "slot", index },
+    disabled: !type,
+  })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : undefined,
+  }
+
   const bgStyle: React.CSSProperties = type
     ? { backgroundColor: `var(--color-session-${type}-bg)` }
     : {}
@@ -309,26 +330,21 @@ export function DaySlot({
     ? { color: `var(--color-session-${type}-text)` }
     : {}
 
+  // Merge refs: element is both draggable and droppable
+  const setRefs = (el: HTMLElement | null) => {
+    setDropRef(el)
+    setDragRef(el)
+  }
+
   return (
     <div
-      draggable={!!type}
-      onDragStart={(e) => {
-        if (!type) { e.preventDefault(); return }
-        onSlotDragStart(index)
-      }}
-      onDragOver={(e) => {
-        e.preventDefault()
-        onDragOver(index)
-      }}
-      onDragLeave={() => onDragLeave(index)}
-      onDrop={(e) => {
-        e.preventDefault()
-        onDrop(index)
-      }}
-      className={`flex min-h-[180px] flex-col rounded-xl border p-3 transition-colors ${
+      ref={setRefs}
+      {...attributes}
+      {...listeners}
+      className={`flex min-h-[180px] flex-col rounded-xl border p-3 transition-colors touch-none ${
         !type ? "border-dashed border-muted-foreground/25 bg-muted/30" : "cursor-grab active:cursor-grabbing"
       }`}
-      style={{ ...bgStyle, ...borderStyle, ...textStyle }}
+      style={{ ...bgStyle, ...borderStyle, ...textStyle, ...style }}
     >
       {/* Header */}
       <div className="mb-2 flex items-center justify-between">
@@ -336,6 +352,7 @@ export function DaySlot({
         {type && (
           <button
             type="button"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
               onClear(index)

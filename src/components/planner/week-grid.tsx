@@ -1,3 +1,5 @@
+import { useDraggable } from "@dnd-kit/core"
+import { CSS } from "@dnd-kit/utilities"
 import { CalendarDays } from "lucide-react"
 import { DaySlot } from "@/components/planner/day-slot"
 import { SESSION_META, type DaySlotData, type SessionType } from "@/lib/planner-data"
@@ -5,13 +7,7 @@ import type { PaceZones } from "@/lib/calculator"
 
 interface WeekGridProps {
   week: DaySlotData[]
-  dragOverIndex: number | null
-  onDrop: (index: number) => void
-  onDragOver: (index: number) => void
-  onDragLeave: (index: number) => void
   onClear: (index: number) => void
-  onTypeDragStart: (type: SessionType) => void
-  onSlotDragStart: (index: number) => void
   // Easy
   easyInputs: Record<string, number>
   onEasyMinChange: (day: string, min: number) => void
@@ -33,15 +29,36 @@ interface WeekGridProps {
 
 const CHIP_TYPES: SessionType[] = ["easy", "long", "rest"]
 
+function TypeChip({ type }: { type: SessionType }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `type-${type}`,
+    data: { type },
+  })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : undefined,
+    background: `var(--color-session-${type}-bg)`,
+    color: `var(--color-session-${type}-text)`,
+    borderColor: `color-mix(in srgb, var(--color-session-${type}) 30%, transparent)`,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className="cursor-grab select-none rounded-full border px-3 py-1 text-xs font-medium active:cursor-grabbing touch-none"
+      style={style}
+    >
+      {SESSION_META[type].label}
+    </div>
+  )
+}
+
 export function WeekGrid({
   week,
-  dragOverIndex,
-  onDrop,
-  onDragOver,
-  onDragLeave,
   onClear,
-  onTypeDragStart,
-  onSlotDragStart,
   easyInputs,
   onEasyMinChange,
   strides,
@@ -66,19 +83,7 @@ export function WeekGrid({
           Drag to fill non-Q days:
         </span>
         {CHIP_TYPES.map((type) => (
-          <div
-            key={type}
-            draggable
-            onDragStart={() => onTypeDragStart(type)}
-            className="cursor-grab select-none rounded-full border px-3 py-1 text-xs font-medium active:cursor-grabbing"
-            style={{
-              background: `var(--color-session-${type}-bg)`,
-              color: `var(--color-session-${type}-text)`,
-              borderColor: `color-mix(in srgb, var(--color-session-${type}) 30%, transparent)`,
-            }}
-          >
-            {SESSION_META[type].label}
-          </div>
+          <TypeChip key={type} type={type} />
         ))}
       </div>
 
@@ -89,12 +94,7 @@ export function WeekGrid({
             key={slot.day}
             slot={slot}
             index={i}
-            isOver={dragOverIndex === i}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
             onClear={onClear}
-            onSlotDragStart={onSlotDragStart}
             easyMin={easyInputs[slot.day] || 40}
             onEasyMinChange={onEasyMinChange}
             hasStrides={!!strides[slot.day]}

@@ -1,4 +1,14 @@
 import { useState, useMemo, useEffect } from "react"
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core"
 import { getPaceZones } from "@/lib/calculator"
 import { QualityPalette } from "@/components/planner/quality-palette"
 import { WeekGrid } from "@/components/planner/week-grid"
@@ -6,6 +16,7 @@ import { WeeklySummary } from "@/components/planner/weekly-summary"
 import {
   initWeek,
   qWorkMin,
+  SESSION_META,
   type DaySlotData,
   type QTemplate,
   type SessionType,
@@ -14,14 +25,16 @@ import {
 export default function PlannerPage() {
   const [week, setWeek] = useState<DaySlotData[]>(initWeek)
   const [catFilter, setCatFilter] = useState("all")
-  const [dragData, setDragData] = useState<{ type: string; template: QTemplate | null } | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [easyInputs, setEasyInputs] = useState<Record<string, number>>({})
   const [strides, setStrides] = useState<Record<string, boolean>>({})
   const [longMin, setLongMin] = useState(75)
   const [defaultWu, setDefaultWu] = useState(10)
   const [defaultCd, setDefaultCd] = useState(10)
   const [wuCd, setWuCd] = useState<Record<string, { wu?: number; cd?: number }>>({})
+
+  // Drag overlay state
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeDragData, setActiveDragData] = useState<Record<string, unknown> | null>(null)
 
   // Scroll tracking (debug)
   const [scrollY, setScrollY] = useState(0)
@@ -55,36 +68,70 @@ export default function PlannerPage() {
       return n
     })
 
-  // Drag handlers
-  const [dragSourceIndex, setDragSourceIndex] = useState<number | null>(null)
+  // @dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+  )
 
-  const handleQualityDragStart = (template: QTemplate) => {
-    setDragSourceIndex(null)
-    setDragData({ type: "quality", template })
-  }
-  const handleTypeDragStart = (type: SessionType) => {
-    setDragSourceIndex(null)
-    setDragData({ type, template: null })
-  }
-  const handleSlotDragStart = (index: number) => {
-    setDragSourceIndex(index)
-    setDragData(null)
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id))
+    setActiveDragData((event.active.data.current as Record<string, unknown>) ?? null)
   }
 
-  const handleDrop = (dayIdx: number) => {
-    // Swap two day slots
-    if (dragSourceIndex !== null && dragSourceIndex !== dayIdx) {
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null)
+    setActiveDragData(null)
+
+    const { active, over } = event
+    if (!over) return
+
+    const activeStr = String(active.id)
+    const overStr = String(over.id)
+
+    // Only accept drops onto "drop-{index}" targets
+    if (!overStr.startsWith("drop-")) return
+    const dayIdx = Number(overStr.replace("drop-", ""))
+
+    // 1. Quality template drag
+    if (activeStr.startsWith("template-")) {
+      const template = (active.data.current as { template: QTemplate }).template
       setWeek((prev) => {
         const next = [...prev]
-        const srcSlot = { ...next[dragSourceIndex] }
+        next[dayIdx] = { ...next[dayIdx], type: "quality", template }
+        return next
+      })
+      return
+    }
+
+    // 2. Session type chip drag
+    if (activeStr.startsWith("type-")) {
+      const sessionType = activeStr.replace("type-", "") as SessionType
+      setWeek((prev) => {
+        const next = [...prev]
+        next[dayIdx] = { ...next[dayIdx], type: sessionType, template: null }
+        return next
+      })
+      return
+    }
+
+    // 3. Slot-to-slot swap
+    if (activeStr.startsWith("slot-")) {
+      const srcIdx = Number(activeStr.replace("slot-", ""))
+      if (srcIdx === dayIdx) return
+
+      const srcDay = week[srcIdx].day
+      const dstDay = week[dayIdx].day
+
+      setWeek((prev) => {
+        const next = [...prev]
+        const srcSlot = { ...next[srcIdx] }
         const dstSlot = { ...next[dayIdx] }
         next[dayIdx] = { ...srcSlot, day: next[dayIdx].day }
-        next[dragSourceIndex] = { ...dstSlot, day: next[dragSourceIndex].day }
+        next[srcIdx] = { ...dstSlot, day: next[srcIdx].day }
         return next
       })
       // Swap associated state (easyInputs, strides, wuCd)
-      const srcDay = week[dragSourceIndex].day
-      const dstDay = week[dayIdx].day
       setEasyInputs((p) => {
         const n = { ...p }
         const tmp = n[srcDay]; n[srcDay] = n[dstDay]; n[dstDay] = tmp
@@ -100,25 +147,7 @@ export default function PlannerPage() {
         const tmp = n[srcDay]; n[srcDay] = n[dstDay]; n[dstDay] = tmp
         return n
       })
-      setDragSourceIndex(null)
-      setDragOverIndex(null)
-      return
     }
-
-    // Drop template or session type onto a day
-    if (!dragData) return
-    setWeek((prev) => {
-      const next = [...prev]
-      if (dragData.type === "quality") {
-        next[dayIdx] = { ...next[dayIdx], type: "quality", template: dragData.template }
-      } else {
-        next[dayIdx] = { ...next[dayIdx], type: dragData.type as SessionType, template: null }
-      }
-      return next
-    })
-    setDragData(null)
-    setDragSourceIndex(null)
-    setDragOverIndex(null)
   }
 
   const handleClear = (dayIdx: number) => {
@@ -163,18 +192,134 @@ export default function PlannerPage() {
     setWuCd({})
   }
 
-  return (
-    <div className="max-w-[1280px] mx-auto px-5 py-8 pb-[240px] lg:pb-12">
-      <header className="mb-5">
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">Weekly Planner</h1>
-        <p className="text-sm text-muted-foreground">
-          Plan your NSA training week — drag quality sessions to days, fill easy and long runs.
-        </p>
-      </header>
+  // Drag overlay content
+  const renderDragOverlay = () => {
+    if (!activeId) return null
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
-        {/* Left panel — summary + settings */}
-        <div className="space-y-4">
+    if (activeId.startsWith("template-") && activeDragData) {
+      const t = activeDragData.template as QTemplate
+      return (
+        <div className="rounded-lg bg-muted p-2.5 shadow-lg border border-border/50 opacity-90 w-40">
+          <div className="text-xs font-medium">Sub-Threshold</div>
+          <div className="text-xs text-muted-foreground">
+            {t.name.includes("×") ? t.name.replace("×", " × ") : t.name}
+          </div>
+        </div>
+      )
+    }
+
+    if (activeId.startsWith("type-")) {
+      const sessionType = activeId.replace("type-", "") as SessionType
+      return (
+        <div
+          className="rounded-full border px-3 py-1 text-xs font-medium shadow-lg opacity-90"
+          style={{
+            background: `var(--color-session-${sessionType}-bg)`,
+            color: `var(--color-session-${sessionType}-text)`,
+            borderColor: `color-mix(in srgb, var(--color-session-${sessionType}) 30%, transparent)`,
+          }}
+        >
+          {SESSION_META[sessionType].label}
+        </div>
+      )
+    }
+
+    if (activeId.startsWith("slot-")) {
+      const idx = Number(activeId.replace("slot-", ""))
+      const slot = week[idx]
+      if (!slot.type) return null
+      return (
+        <div
+          className="rounded-xl border p-3 shadow-lg opacity-90 min-w-[100px]"
+          style={{
+            backgroundColor: `var(--color-session-${slot.type}-bg)`,
+            color: `var(--color-session-${slot.type}-text)`,
+            borderColor: `color-mix(in srgb, var(--color-session-${slot.type}) 30%, transparent)`,
+          }}
+        >
+          <span className="text-xs font-semibold">{slot.day}</span>
+          {slot.type === "quality" && slot.template && (
+            <div className="text-xs mt-1">{slot.template.name}</div>
+          )}
+          {slot.type !== "quality" && (
+            <div className="text-xs mt-1">{SESSION_META[slot.type].label}</div>
+          )}
+        </div>
+      )
+    }
+
+    return null
+  }
+
+  return (
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="max-w-[1280px] mx-auto px-5 py-8 pb-[240px] lg:pb-12">
+        <header className="mb-5">
+          <h1 className="text-2xl font-semibold tracking-tight mb-1">Weekly Planner</h1>
+          <p className="text-sm text-muted-foreground">
+            Plan your NSA training week — drag quality sessions to days, fill easy and long runs.
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
+          {/* Left panel — summary + settings */}
+          <div className="space-y-4">
+            <WeeklySummary
+              totalQWorkMin={totalQWorkMin}
+              totalEasyAll={totalEasyAll}
+              totalQWuCdMin={totalQWuCdMin}
+              totalSubT={totalSubT}
+              totalWeekMin={totalWeekMin}
+              qPct={qPct}
+              ePct={ePct}
+              ratioOk={ratioOk}
+              ratioClose={ratioClose}
+              neededEasyMin={neededEasyMin}
+              qDayCount={qDays.length}
+              restDayCount={rDays.length}
+              onReset={resetAll}
+            />
+
+          </div>
+
+          {/* Right panel — workout templates */}
+          <div>
+            <QualityPalette
+              catFilter={catFilter}
+              onCatFilterChange={setCatFilter}
+              defaultWu={defaultWu}
+              defaultCd={defaultCd}
+              onDefaultWuChange={setDefaultWu}
+              onDefaultCdChange={setDefaultCd}
+              paceZones={paceZones}
+            />
+          </div>
+        </div>
+
+        {/* Full-width week grid */}
+        <div className="mt-6">
+          <WeekGrid
+            week={week}
+            onClear={handleClear}
+            easyInputs={easyInputs}
+            onEasyMinChange={(day, min) => setEasyInputs((p) => ({ ...p, [day]: min }))}
+            strides={strides}
+            onStridesChange={(day, v) => setStrides((p) => ({ ...p, [day]: v }))}
+            longMin={longMin}
+            onLongMinChange={setLongMin}
+            getWu={getWu}
+            getCd={getCd}
+            isWuOverridden={isWuOverridden}
+            isCdOverridden={isCdOverridden}
+            onWuChange={handleWuChange}
+            onCdChange={handleCdChange}
+            onResetWuCd={handleResetWuCd}
+            paceZones={paceZones}
+          />
+        </div>
+
+        {/* Floating weekly summary — mobile only, after scroll threshold */}
+        <div className={`fixed bottom-0 left-0 right-0 lg:hidden z-50 bg-background/90 backdrop-blur-sm border-t border-border/50 shadow-[0_-4px_20px_rgba(0,0,0,0.15)] p-3 max-h-[50vh] overflow-y-auto transition-transform duration-300 ${scrollY >= 370 ? "translate-y-0" : "translate-y-full"}`}>
           <WeeklySummary
             totalQWorkMin={totalQWorkMin}
             totalEasyAll={totalEasyAll}
@@ -190,70 +335,10 @@ export default function PlannerPage() {
             restDayCount={rDays.length}
             onReset={resetAll}
           />
-
-        </div>
-
-        {/* Right panel — workout templates */}
-        <div>
-          <QualityPalette
-            catFilter={catFilter}
-            onCatFilterChange={setCatFilter}
-            onDragStart={handleQualityDragStart}
-            defaultWu={defaultWu}
-            defaultCd={defaultCd}
-            onDefaultWuChange={setDefaultWu}
-            onDefaultCdChange={setDefaultCd}
-            paceZones={paceZones}
-          />
         </div>
       </div>
 
-      {/* Full-width week grid */}
-      <div className="mt-6">
-        <WeekGrid
-          week={week}
-          dragOverIndex={dragOverIndex}
-          onDrop={handleDrop}
-          onDragOver={setDragOverIndex}
-          onDragLeave={() => setDragOverIndex(null)}
-          onClear={handleClear}
-          onTypeDragStart={handleTypeDragStart}
-          onSlotDragStart={handleSlotDragStart}
-          easyInputs={easyInputs}
-          onEasyMinChange={(day, min) => setEasyInputs((p) => ({ ...p, [day]: min }))}
-          strides={strides}
-          onStridesChange={(day, v) => setStrides((p) => ({ ...p, [day]: v }))}
-          longMin={longMin}
-          onLongMinChange={setLongMin}
-          getWu={getWu}
-          getCd={getCd}
-          isWuOverridden={isWuOverridden}
-          isCdOverridden={isCdOverridden}
-          onWuChange={handleWuChange}
-          onCdChange={handleCdChange}
-          onResetWuCd={handleResetWuCd}
-          paceZones={paceZones}
-        />
-      </div>
-
-      {/* Floating weekly summary — mobile only, after scroll threshold */}
-      <div className={`fixed bottom-0 left-0 right-0 lg:hidden z-50 bg-background/90 backdrop-blur-sm border-t border-border/50 shadow-[0_-4px_20px_rgba(0,0,0,0.15)] p-3 max-h-[50vh] overflow-y-auto transition-transform duration-300 ${scrollY >= 370 ? "translate-y-0" : "translate-y-full"}`}>
-        <WeeklySummary
-          totalQWorkMin={totalQWorkMin}
-          totalEasyAll={totalEasyAll}
-          totalQWuCdMin={totalQWuCdMin}
-          totalSubT={totalSubT}
-          totalWeekMin={totalWeekMin}
-          qPct={qPct}
-          ePct={ePct}
-          ratioOk={ratioOk}
-          ratioClose={ratioClose}
-          neededEasyMin={neededEasyMin}
-          qDayCount={qDays.length}
-          restDayCount={rDays.length}
-          onReset={resetAll}
-        />
-      </div>
-    </div>
+      <DragOverlay>{renderDragOverlay()}</DragOverlay>
+    </DndContext>
   )
 }

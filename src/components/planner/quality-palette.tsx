@@ -1,3 +1,5 @@
+import { useDraggable } from "@dnd-kit/core"
+import { CSS } from "@dnd-kit/utilities"
 import { Settings, PersonStanding } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +16,6 @@ import { fmtPace, type PaceZones } from "@/lib/calculator"
 interface QualityPaletteProps {
   catFilter: string
   onCatFilterChange: (cat: string) => void
-  onDragStart: (template: QTemplate) => void
   defaultWu: number
   defaultCd: number
   onDefaultWuChange: (v: number) => void
@@ -38,7 +39,6 @@ const CATEGORIES = [
 export function QualityPalette({
   catFilter,
   onCatFilterChange,
-  onDragStart,
   defaultWu,
   defaultCd,
   onDefaultWuChange,
@@ -114,14 +114,50 @@ export function QualityPalette({
 
       {/* Draggable template cards */}
       <div className="grid grid-cols-2 gap-2 overflow-y-auto min-h-0">
-        {templates.map((t) => {
-          const totalMin = Math.round(totalSessionMin(t, defaultWu, defaultCd))
-          return (
+        {templates.map((t) => (
+          <DraggableTemplateCard
+            key={t.id}
+            template={t}
+            defaultWu={defaultWu}
+            defaultCd={defaultCd}
+            paceZones={paceZones}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DraggableTemplateCard({
+  template: t,
+  defaultWu,
+  defaultCd,
+  paceZones,
+}: {
+  template: QTemplate
+  defaultWu: number
+  defaultCd: number
+  paceZones: PaceZones | null
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `template-${t.id}`,
+    data: { type: "quality", template: t },
+  })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : undefined,
+  }
+
+  const totalMin = Math.round(totalSessionMin(t, defaultWu, defaultCd))
+
+  return (
             <div
-              key={t.id}
-              draggable
-              onDragStart={() => onDragStart(t)}
-              className="cursor-grab rounded-lg bg-muted p-2.5 select-none active:cursor-grabbing"
+              ref={setNodeRef}
+              {...attributes}
+              {...listeners}
+              className="cursor-grab rounded-lg bg-muted p-2.5 select-none active:cursor-grabbing touch-none"
+              style={style}
             >
               {/* Workout structure chart: WU + reps + rest + CD */}
               <div className="flex items-end gap-[2px] mb-2" style={{ height: 28 }}>
@@ -233,9 +269,5 @@ export function QualityPalette({
                 })()}
               </div>
             </div>
-          )
-        })}
-      </div>
-    </div>
   )
 }
