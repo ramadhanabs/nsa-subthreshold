@@ -1,11 +1,14 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { apiFetch } from "./api"
 
 interface User {
+  id: string
   email: string
 }
 
 interface AuthContextValue {
   user: User | null
+  token: string | null
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string) => Promise<void>
   logout: () => void
@@ -16,37 +19,51 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem("nsa-token"))
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem("nsa-user")
-    if (stored) setUser(JSON.parse(stored))
-    setIsLoading(false)
+    if (!token) {
+      setIsLoading(false)
+      return
+    }
+    apiFetch<User>("/api/auth/me")
+      .then(setUser)
+      .catch(() => {
+        localStorage.removeItem("nsa-token")
+        setToken(null)
+      })
+      .finally(() => setIsLoading(false))
   }, [])
 
-  async function login(email: string, password: string) {
-    if (!email || !password) throw new Error("Email and password are required")
-    if (password.length < 6) throw new Error("Password must be at least 6 characters")
-    const u = { email }
-    localStorage.setItem("nsa-user", JSON.stringify(u))
-    setUser(u)
-  }
+  const login = useCallback(async (email: string, password: string) => {
+    const data = await apiFetch<{ id: string; email: string; token: string }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    })
+    localStorage.setItem("nsa-token", data.token)
+    setToken(data.token)
+    setUser({ id: data.id, email: data.email })
+  }, [])
 
-  async function register(email: string, password: string) {
-    if (!email || !password) throw new Error("Email and password are required")
-    if (password.length < 6) throw new Error("Password must be at least 6 characters")
-    const u = { email }
-    localStorage.setItem("nsa-user", JSON.stringify(u))
-    setUser(u)
-  }
+  const register = useCallback(async (email: string, password: string) => {
+    const data = await apiFetch<{ id: string; email: string; token: string }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    })
+    localStorage.setItem("nsa-token", data.token)
+    setToken(data.token)
+    setUser({ id: data.id, email: data.email })
+  }, [])
 
-  function logout() {
-    localStorage.removeItem("nsa-user")
+  const logout = useCallback(() => {
+    localStorage.removeItem("nsa-token")
+    setToken(null)
     setUser(null)
-  }
+  }, [])
 
   return (
-    <AuthContext value={{ user, login, register, logout, isLoading }}>
+    <AuthContext value={{ user, token, login, register, logout, isLoading }}>
       {children}
     </AuthContext>
   )
