@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router"
 import { useAuth } from "@/lib/auth-context"
 import { apiFetch } from "@/lib/api"
+import { Input } from "@/components/ui/input"
 import { get5kPace, getHR, getPaceZones, fmtPace, type InputMode } from "@/lib/calculator"
 
 interface TestResult {
@@ -11,6 +12,21 @@ interface TestResult {
   value_a: number
   value_b: number
   max_hr: number | null
+}
+
+interface WellnessRecord {
+  ctl?: number
+  restingHR?: number
+}
+
+function GlobeIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </svg>
+  )
 }
 
 function getWeekRange() {
@@ -33,6 +49,17 @@ export default function DashboardPage() {
   const [tests, setTests] = useState<TestResult[] | null>(null)
   const [fetchError, setFetchError] = useState(false)
 
+  // Wellness / Intervals.icu state
+  const [wellness, setWellness] = useState<WellnessRecord | null>(null)
+  const [intervalsConnected, setIntervalsConnected] = useState(false)
+  const [intervalsAthleteId, setIntervalsAthleteId] = useState("")
+  const [connectAthleteId, setConnectAthleteId] = useState("")
+  const [connectApiKey, setConnectApiKey] = useState("")
+  const [connectMsg, setConnectMsg] = useState("")
+  const [syncMsg, setSyncMsg] = useState("")
+  const [connectLoading, setConnectLoading] = useState(false)
+  const [syncLoading, setSyncLoading] = useState(false)
+
   useEffect(() => {
     if (!isLoading && !user) {
       navigate("/login?redirect=/dashboard", { replace: true })
@@ -44,8 +71,58 @@ export default function DashboardPage() {
       apiFetch<TestResult[]>("/api/tests")
         .then(setTests)
         .catch(() => setFetchError(true))
+
+      // Try fetching wellness data (last 7 days)
+      const from = new Date()
+      from.setDate(from.getDate() - 7)
+      const fromStr = from.toISOString().slice(0, 10)
+      apiFetch<WellnessRecord[]>(`/api/wellness?from=${fromStr}`)
+        .then((records) => {
+          if (records && records.length > 0) {
+            const avgHR = records.reduce((s, r) => s + (r.restingHR ?? 0), 0) / records.filter((r) => r.restingHR).length
+            const latestCtl = records[records.length - 1]?.ctl
+            setWellness({ ctl: latestCtl, restingHR: avgHR || undefined })
+            setIntervalsConnected(true)
+          }
+        })
+        .catch(() => {
+          // Not connected or no data — ignore
+        })
     }
   }, [user])
+
+  async function handleIntervalsConnect(e: FormEvent) {
+    e.preventDefault()
+    setConnectLoading(true)
+    setConnectMsg("")
+    try {
+      await apiFetch("/api/intervals/connect", {
+        method: "POST",
+        body: JSON.stringify({ athlete_id: connectAthleteId, api_key: connectApiKey }),
+      })
+      setIntervalsConnected(true)
+      setIntervalsAthleteId(connectAthleteId)
+      setConnectMsg("Connected successfully")
+    } catch (err: unknown) {
+      setConnectMsg(err instanceof Error ? err.message : "Connection failed")
+    } finally {
+      setConnectLoading(false)
+    }
+  }
+
+  async function handleSync() {
+    setSyncLoading(true)
+    setSyncMsg("")
+    try {
+      const res = await apiFetch<{ synced: number }>("/api/intervals/sync", { method: "POST" })
+      setSyncMsg(`Synced ${res.synced} records`)
+      setIntervalsConnected(true)
+    } catch (err: unknown) {
+      setSyncMsg(err instanceof Error ? err.message : "Sync failed")
+    } finally {
+      setSyncLoading(false)
+    }
+  }
 
   if (isLoading) return null
   if (!user) return null
@@ -176,7 +253,108 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Section 4: Quick actions */}
+      {/* Section 4: Progress */}
+      <div>
+        <div className="text-[13px] font-medium mb-3">Progress</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="bg-muted rounded-lg p-2.5">
+            <div className="text-[0.65rem] text-muted-foreground">CTL</div>
+            <div className="text-xl font-medium font-mono">
+              {wellness?.ctl != null ? Math.round(wellness.ctl) : "\u2014"}
+            </div>
+            <div className="text-[0.65rem] text-muted-foreground">chronic training load</div>
+          </div>
+          <div className="bg-muted rounded-lg p-2.5">
+            <div className="text-[0.65rem] text-muted-foreground">Resting HR</div>
+            <div className="text-xl font-medium font-mono">
+              {wellness?.restingHR != null ? Math.round(wellness.restingHR) : "\u2014"}
+            </div>
+            <div className="text-[0.65rem] text-muted-foreground">avg last 7d</div>
+          </div>
+          <div className="bg-muted rounded-lg p-2.5">
+            <div className="text-[0.65rem] text-muted-foreground">Week streak</div>
+            <div className="text-xl font-medium font-mono">{"\u2014"}</div>
+            <div className="text-[0.65rem] text-muted-foreground">consecutive</div>
+          </div>
+          <div className="bg-muted rounded-lg p-2.5">
+            <div className="text-[0.65rem] text-muted-foreground">Phase</div>
+            <div className="text-xl font-medium font-mono">{"\u2014"}</div>
+            <div className="text-[0.65rem] text-muted-foreground">
+              {intervalsConnected ? "current block" : "connect Intervals.icu"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 5: Intervals.icu */}
+      <div className="bg-muted/50 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <GlobeIcon />
+          <div className="text-[13px] font-medium">Intervals.icu</div>
+        </div>
+
+        {intervalsConnected ? (
+          <div className="space-y-3">
+            <div className="text-sm text-muted-foreground">
+              Connected {intervalsAthleteId ? `\u2014 Athlete ${intervalsAthleteId}` : ""}
+            </div>
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={handleSync}
+                disabled={syncLoading}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                {syncLoading ? "Syncing..." : "Sync wellness"}
+              </button>
+              <button
+                onClick={() => {
+                  setIntervalsConnected(false)
+                  setIntervalsAthleteId("")
+                  setWellness(null)
+                  setSyncMsg("")
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Disconnect
+              </button>
+            </div>
+            {syncMsg && <div className="text-xs text-muted-foreground">{syncMsg}</div>}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="text-sm text-muted-foreground">
+              Connect your Intervals.icu account to sync wellness data
+            </div>
+            <form onSubmit={handleIntervalsConnect} className="flex flex-col sm:flex-row gap-2">
+              <Input
+                placeholder="Athlete ID"
+                value={connectAthleteId}
+                onChange={(e) => setConnectAthleteId(e.target.value)}
+                required
+                className="flex-1"
+              />
+              <Input
+                placeholder="API key"
+                type="password"
+                value={connectApiKey}
+                onChange={(e) => setConnectApiKey(e.target.value)}
+                required
+                className="flex-1"
+              />
+              <button
+                type="submit"
+                disabled={connectLoading}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                {connectLoading ? "Connecting..." : "Connect"}
+              </button>
+            </form>
+            {connectMsg && <div className="text-xs text-muted-foreground">{connectMsg}</div>}
+          </div>
+        )}
+      </div>
+
+      {/* Section 6: Quick actions */}
       <div>
         <div className="text-[13px] font-medium mb-3">Quick actions</div>
         <div className="flex gap-2 flex-wrap">
@@ -192,6 +370,18 @@ export default function DashboardPage() {
           >
             Pace calculator
           </Link>
+          <button
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+          >
+            Record a test
+          </button>
+          <button
+            onClick={intervalsConnected ? handleSync : undefined}
+            disabled={!intervalsConnected}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            Sync wellness
+          </button>
         </div>
       </div>
     </main>
