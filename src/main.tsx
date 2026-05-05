@@ -12,6 +12,7 @@ import GettingStartedPage from "./pages/getting-started"
 import ComparisonPage from "./pages/comparison"
 import LoginPage from "./pages/login"
 import RegisterPage from "./pages/register"
+import DashboardPage from "./pages/dashboard"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -27,6 +28,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/comparison" element={<ComparisonPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
