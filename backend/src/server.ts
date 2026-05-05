@@ -4,6 +4,7 @@ import { TestResultsService } from "./services/TestResults"
 import { PlannerService } from "./services/Planner"
 import { IntervalsService } from "./services/Intervals"
 import { WellnessService } from "./services/Wellness"
+import { ActivitiesService } from "./services/Activities"
 
 const ALLOWED_ORIGINS = [
   "https://subthreshold.bagus.icu",
@@ -46,6 +47,7 @@ export const startServer = Effect.gen(function* () {
   const planner = yield* PlannerService
   const intervals = yield* IntervalsService
   const wellness = yield* WellnessService
+  const activities = yield* ActivitiesService
 
   const port = Number(process.env.PORT) || 3002
 
@@ -196,6 +198,32 @@ export const startServer = Effect.gen(function* () {
           const to = url.searchParams.get("to") ?? undefined
           const records = await Effect.runPromise(
             wellness.list(authResult.user.id, from, to)
+          )
+          return jsonResponse(records, origin)
+        }
+
+        // POST /api/activities/sync
+        if (req.method === "POST" && pathname === "/api/activities/sync") {
+          const authResult = await requireAuth(req, auth, origin)
+          if ("error" in authResult) return authResult.error
+          const { from, to } = (await req.json()) as { from: string; to: string }
+          if (!from || !to) {
+            return errorResponse("from and to are required", 400, origin)
+          }
+          const synced = await Effect.runPromise(
+            activities.sync(authResult.user.id, from, to)
+          ).catch((e) => { throw e })
+          return jsonResponse({ synced }, origin)
+        }
+
+        // GET /api/activities
+        if (req.method === "GET" && pathname === "/api/activities") {
+          const authResult = await requireAuth(req, auth, origin)
+          if ("error" in authResult) return authResult.error
+          const from = url.searchParams.get("from") ?? undefined
+          const to = url.searchParams.get("to") ?? undefined
+          const records = await Effect.runPromise(
+            activities.list(authResult.user.id, from, to)
           )
           return jsonResponse(records, origin)
         }
