@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router"
 import { useAuth } from "@/lib/auth-context"
 import { apiFetch } from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { get5kPace, getHR, getPaceZones, fmtPace, type InputMode } from "@/lib/calculator"
+import TestTracker from "@/components/test-tracker"
 
 interface TestResult {
   id: string
@@ -12,6 +13,8 @@ interface TestResult {
   value_a: number
   value_b: number
   max_hr: number | null
+  notes: string | null
+  created_at: string
 }
 
 interface WellnessRecord {
@@ -66,11 +69,15 @@ export default function DashboardPage() {
     }
   }, [user, isLoading, navigate])
 
+  const fetchTests = useCallback(() => {
+    apiFetch<TestResult[]>("/api/tests")
+      .then(setTests)
+      .catch(() => setFetchError(true))
+  }, [])
+
   useEffect(() => {
     if (user) {
-      apiFetch<TestResult[]>("/api/tests")
-        .then(setTests)
-        .catch(() => setFetchError(true))
+      fetchTests()
 
       // Try fetching wellness data (last 7 days)
       const from = new Date()
@@ -137,6 +144,25 @@ export default function DashboardPage() {
         return { fkp, hr, paceZones, fiveKTime }
       })()
     : null
+
+  const handleAddTest = useCallback(
+    async (data: { test_type: string; test_date: string; value_a: number; value_b: number }) => {
+      await apiFetch("/api/tests", {
+        method: "POST",
+        body: JSON.stringify(data),
+      })
+      fetchTests()
+    },
+    [fetchTests],
+  )
+
+  const handleDeleteTest = useCallback(
+    async (id: string) => {
+      await apiFetch(`/api/tests/${id}`, { method: "DELETE" })
+      fetchTests()
+    },
+    [fetchTests],
+  )
 
   const initials = user.email.slice(0, 2).toUpperCase()
 
@@ -226,6 +252,18 @@ export default function DashboardPage() {
             : tests === null
               ? "Loading..."
               : "No test results yet — record your first test below"}
+        </div>
+      )}
+
+      {/* Test tracker */}
+      {tests && (
+        <div>
+          <div className="text-[13px] font-medium mb-3">Test tracker</div>
+          <TestTracker
+            tests={tests}
+            onAdd={handleAddTest}
+            onDelete={handleDeleteTest}
+          />
         </div>
       )}
 
