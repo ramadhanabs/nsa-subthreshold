@@ -131,20 +131,6 @@ export default function DashboardPage() {
     }
   }
 
-  if (isLoading) return null
-  if (!user) return null
-
-  const latest = tests?.[0] ?? null
-  const derived = latest
-    ? (() => {
-        const fkp = get5kPace(latest.test_type as InputMode, latest.value_a, latest.value_b)
-        const hr = getHR(latest.max_hr || 208)
-        const paceZones = getPaceZones(fkp)
-        const fiveKTime = fkp * 5
-        return { fkp, hr, paceZones, fiveKTime }
-      })()
-    : null
-
   const handleAddTest = useCallback(
     async (data: { test_type: string; test_date: string; value_a: number; value_b: number }) => {
       await apiFetch("/api/tests", {
@@ -163,6 +149,20 @@ export default function DashboardPage() {
     },
     [fetchTests],
   )
+
+  if (isLoading) return null
+  if (!user) return null
+
+  const latest = tests?.[0] ?? null
+  const derived = latest
+    ? (() => {
+        const fkp = get5kPace(latest.test_type as InputMode, latest.value_a, latest.value_b)
+        const hr = getHR(latest.max_hr || 208)
+        const paceZones = getPaceZones(fkp)
+        const fiveKTime = fkp * 5
+        return { fkp, hr, paceZones, fiveKTime }
+      })()
+    : null
 
   const initials = user.email.slice(0, 2).toUpperCase()
 
@@ -255,18 +255,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Test tracker */}
-      {tests && (
-        <div>
-          <div className="text-[13px] font-medium mb-3">Test tracker</div>
-          <TestTracker
-            tests={tests}
-            onAdd={handleAddTest}
-            onDelete={handleDeleteTest}
-          />
-        </div>
-      )}
-
       {/* Section 3: This week */}
       <div>
         <div className="flex justify-between items-center mb-3">
@@ -323,6 +311,17 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Test tracker */}
+      {tests && (
+        <div>
+          <TestTracker
+            tests={tests}
+            onAdd={handleAddTest}
+            onDelete={handleDeleteTest}
+          />
+        </div>
+      )}
 
       {/* Section 5: Intervals.icu */}
       <div className="bg-muted/50 rounded-xl p-4">

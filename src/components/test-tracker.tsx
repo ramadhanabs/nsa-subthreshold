@@ -1,7 +1,40 @@
 import { useState } from "react"
+import { format, parse } from "date-fns"
+import { Plus, Timer, Route, FlaskConical, CalendarIcon } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { get5kPace, fmtPace } from "@/lib/calculator"
+
+function DatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const selected = value ? parse(value, "yyyy-MM-dd", new Date()) : undefined
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className="w-full flex items-center justify-start gap-2 h-8 rounded-lg border border-input bg-transparent px-2.5 text-xs font-normal hover:bg-muted/50 transition-colors cursor-pointer">
+        <CalendarIcon size={14} className="text-muted-foreground" />
+        {value ? format(parse(value, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Pick a date"}
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={selected}
+          onSelect={(date) => {
+            if (date) {
+              onChange(format(date, "yyyy-MM-dd"))
+              setOpen(false)
+            }
+          }}
+          disabled={{ after: new Date() }}
+          defaultMonth={selected}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 interface TestResult {
   id: string
@@ -37,63 +70,44 @@ function fmtDate(iso: string) {
 const today = () => new Date().toISOString().slice(0, 10)
 
 export default function TestTracker({ tests, onAdd, onDelete }: TestTrackerProps) {
-  const [activeTab, setActiveTab] = useState<"5k" | "20min">("5k")
-
-  const filtered = tests
-    .filter((t) => t.test_type === activeTab)
+  const tests5k = tests
+    .filter((t) => t.test_type === "5k")
     .sort((a, b) => b.test_date.localeCompare(a.test_date))
+  const chrono5k = [...tests5k].reverse()
 
-  // chronological for improvement calc
-  const chrono = [...filtered].reverse()
+  const tests20 = tests
+    .filter((t) => t.test_type === "20min")
+    .sort((a, b) => b.test_date.localeCompare(a.test_date))
+  const chrono20 = [...tests20].reverse()
 
   return (
-    <div className="space-y-4">
-      {/* Tabs */}
-      <div className="flex gap-0 border-b border-border">
-        <Button
-          variant="ghost"
-          className={`rounded-none border-b-2 px-5 py-2 text-[13px] font-medium ${
-            activeTab === "5k"
-              ? "border-teal-600 text-teal-700 dark:border-teal-400 dark:text-teal-400"
-              : "border-transparent text-muted-foreground"
-          }`}
-          onClick={() => setActiveTab("5k")}
-        >
-          5K time trial
-        </Button>
-        <Button
-          variant="ghost"
-          className={`rounded-none border-b-2 px-5 py-2 text-[13px] font-medium ${
-            activeTab === "20min"
-              ? "border-orange-600 text-orange-700 dark:border-orange-400 dark:text-orange-400"
-              : "border-transparent text-muted-foreground"
-          }`}
-          onClick={() => setActiveTab("20min")}
-        >
-          20-minute test
-        </Button>
+    <div className="rounded-xl border border-border bg-gradient-to-b from-background to-muted/50 p-4">
+      <div className="text-[13px] font-medium mb-3 flex items-center gap-1.5">
+        <FlaskConical size={14} className="text-muted-foreground" />
+        Test tracker
       </div>
+      <Tabs defaultValue="5k">
+        <TabsList>
+          <TabsTrigger value="5k">5K time trial</TabsTrigger>
+          <TabsTrigger value="20min">20-minute test</TabsTrigger>
+        </TabsList>
 
-      {/* Metrics */}
-      {activeTab === "5k" ? (
-        <Metrics5K tests={chrono} />
-      ) : (
-        <Metrics20Min tests={chrono} />
-      )}
+        <TabsContent value="5k" className="mt-4">
+          <div className="space-y-4 animate-in fade-in-0 slide-in-from-left-2 duration-300">
+            <Metrics5K tests={chrono5k} />
+            <Form5K onAdd={onAdd} />
+            <History5K tests={tests5k} chrono={chrono5k} onDelete={onDelete} />
+          </div>
+        </TabsContent>
 
-      {/* Record form */}
-      {activeTab === "5k" ? (
-        <Form5K onAdd={onAdd} />
-      ) : (
-        <Form20Min onAdd={onAdd} />
-      )}
-
-      {/* History */}
-      {activeTab === "5k" ? (
-        <History5K tests={filtered} chrono={chrono} onDelete={onDelete} />
-      ) : (
-        <History20Min tests={filtered} chrono={chrono} onDelete={onDelete} />
-      )}
+        <TabsContent value="20min" className="mt-4">
+          <div className="space-y-4 animate-in fade-in-0 slide-in-from-right-2 duration-300">
+            <Metrics20Min tests={chrono20} />
+            <Form20Min onAdd={onAdd} />
+            <History20Min tests={tests20} chrono={chrono20} onDelete={onDelete} />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
@@ -260,19 +274,17 @@ function Form5K({
 
   return (
     <div className="bg-muted/50 rounded-xl p-4 border border-border">
-      <div className="text-[13px] font-medium mb-1">Record 5K result</div>
+      <div className="text-[13px] font-medium mb-1 flex items-center gap-1.5">
+        <Timer size={14} className="text-teal-500 dark:text-teal-400" />
+        Record 5K result
+      </div>
       <div className="text-xs text-muted-foreground mb-3">
         From a 5K race, parkrun, or solo time trial
       </div>
       <div className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
         <div>
           <label className="text-xs text-muted-foreground block mb-1">Date</label>
-          <Input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="text-xs"
-          />
+          <DatePicker value={date} onChange={setDate} />
         </div>
         <div>
           <label className="text-xs text-muted-foreground block mb-1">
@@ -282,10 +294,15 @@ function Form5K({
             <Input
               type="number"
               value={min}
-              min={12}
-              max={45}
-              onChange={(e) => setMin(parseInt(e.target.value) || 0)}
-              className="text-xs text-center"
+              min={0}
+              max={59}
+              onChange={(e) => {
+                const raw = e.target.value
+                if (raw.length > 2) return
+                const v = parseInt(raw) || 0
+                setMin(Math.min(59, v))
+              }}
+              className="text-xs text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
             />
             <span className="text-muted-foreground">:</span>
             <Input
@@ -293,17 +310,22 @@ function Form5K({
               value={sec}
               min={0}
               max={59}
-              onChange={(e) => setSec(parseInt(e.target.value) || 0)}
-              className="text-xs text-center"
+              onChange={(e) => {
+                const raw = e.target.value
+                if (raw.length > 2) return
+                const v = parseInt(raw) || 0
+                setSec(Math.min(59, v))
+              }}
+              className="text-xs text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
             />
           </div>
         </div>
         <Button
           onClick={handleSubmit}
           disabled={submitting}
-          variant="ghost"
-          className="border border-teal-600 text-teal-700 dark:border-teal-400 dark:text-teal-400 bg-teal-600/5 hover:bg-teal-600/10"
+          className="bg-foreground text-background hover:bg-foreground/90"
         >
+          <Plus size={14} className="text-teal-400" />
           Add
         </Button>
       </div>
@@ -337,19 +359,17 @@ function Form20Min({
 
   return (
     <div className="bg-muted/50 rounded-xl p-4 border border-border">
-      <div className="text-[13px] font-medium mb-1">Record 20-minute test</div>
+      <div className="text-[13px] font-medium mb-1 flex items-center gap-1.5">
+        <Route size={14} className="text-orange-500 dark:text-orange-400" />
+        Record 20-minute test
+      </div>
       <div className="text-xs text-muted-foreground mb-3">
         Distance covered in a maximal 20-minute effort
       </div>
       <div className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
         <div>
           <label className="text-xs text-muted-foreground block mb-1">Date</label>
-          <Input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="text-xs"
-          />
+          <DatePicker value={date} onChange={setDate} />
         </div>
         <div>
           <label className="text-xs text-muted-foreground block mb-1">
@@ -368,9 +388,9 @@ function Form20Min({
         <Button
           onClick={handleSubmit}
           disabled={submitting}
-          variant="ghost"
-          className="border border-orange-600 text-orange-700 dark:border-orange-400 dark:text-orange-400 bg-orange-600/5 hover:bg-orange-600/10"
+          className="bg-foreground text-background hover:bg-foreground/90"
         >
+          <Plus size={14} className="text-orange-400" />
           Add
         </Button>
       </div>
