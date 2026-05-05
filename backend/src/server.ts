@@ -5,6 +5,7 @@ import { PlannerService } from "./services/Planner"
 import { IntervalsService } from "./services/Intervals"
 import { WellnessService } from "./services/Wellness"
 import { ActivitiesService } from "./services/Activities"
+import { WorkoutExportService } from "./services/WorkoutExport"
 
 const ALLOWED_ORIGINS = [
   "https://subthreshold.bagus.icu",
@@ -48,6 +49,7 @@ export const startServer = Effect.gen(function* () {
   const intervals = yield* IntervalsService
   const wellness = yield* WellnessService
   const activities = yield* ActivitiesService
+  const workoutExport = yield* WorkoutExportService
 
   const port = Number(process.env.PORT) || 3002
 
@@ -214,6 +216,20 @@ export const startServer = Effect.gen(function* () {
             activities.sync(authResult.user.id, from, to)
           ).catch((e) => { throw e })
           return jsonResponse({ synced }, origin)
+        }
+
+        // POST /api/intervals/export
+        if (req.method === "POST" && pathname === "/api/intervals/export") {
+          const authResult = await requireAuth(req, auth, origin)
+          if ("error" in authResult) return authResult.error
+          const { week_data, start_date, default_wu, default_cd } = (await req.json()) as any
+          if (!week_data || !start_date) {
+            return errorResponse("week_data and start_date are required", 400, origin)
+          }
+          const exported = await Effect.runPromise(
+            workoutExport.exportWeek(authResult.user.id, { week_data, start_date, default_wu, default_cd })
+          ).catch((e) => { throw e })
+          return jsonResponse({ exported }, origin)
         }
 
         // GET /api/activities

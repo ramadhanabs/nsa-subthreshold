@@ -6,6 +6,7 @@ import { PlannerServiceLive } from "./services/Planner"
 import { IntervalsServiceLive } from "./services/Intervals"
 import { WellnessServiceLive } from "./services/Wellness"
 import { ActivitiesServiceLive } from "./services/Activities"
+import { WorkoutExportServiceLive } from "./services/WorkoutExport"
 import { runMigrations } from "./migrations"
 import { startServer } from "./server"
 
@@ -22,7 +23,8 @@ const MainLive = Layer.mergeAll(
   PlannerServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
   IntervalsServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
   WellnessServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  ActivitiesServiceLive.pipe(Layer.provide(DatabaseServiceLive))
+  ActivitiesServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
+  WorkoutExportServiceLive.pipe(Layer.provide(DatabaseServiceLive))
 )
 
 Effect.runPromise(main.pipe(Effect.provide(MainLive)))
