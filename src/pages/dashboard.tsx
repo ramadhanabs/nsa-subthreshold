@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { get5kPace, getHR, getPaceZones, fmtPace, type InputMode } from "@/lib/calculator"
 import TestTracker from "@/components/test-tracker"
+import ActivitiesList from "@/components/activities-list"
 
 interface TestResult {
   id: string
@@ -311,6 +312,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Activities list (only when Intervals.icu connected) */}
+      {intervalsConnected && <ActivitiesList />}
 
       {/* Test tracker */}
       {tests && (
