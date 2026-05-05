@@ -9,10 +9,24 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core"
+import { Upload } from "lucide-react"
 import { getPaceZones } from "@/lib/calculator"
+import { useAuth } from "@/lib/auth-context"
+import { apiFetch } from "@/lib/api"
 import { QualityPalette } from "@/components/planner/quality-palette"
 import { WeekGrid } from "@/components/planner/week-grid"
 import { WeeklySummary } from "@/components/planner/weekly-summary"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   initWeek,
   qWorkMin,
@@ -22,9 +36,21 @@ import {
   type SessionType,
 } from "@/lib/planner-data"
 
+function getNextMonday() {
+  const d = new Date()
+  const day = d.getDay()
+  const diff = day === 0 ? 1 : 8 - day
+  d.setDate(d.getDate() + diff)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function PlannerPage() {
+  const { user } = useAuth()
   const [week, setWeek] = useState<DaySlotData[]>(initWeek)
   const [catFilter, setCatFilter] = useState("all")
+  const [exportDate, setExportDate] = useState(getNextMonday)
+  const [exporting, setExporting] = useState(false)
+  const [exportMsg, setExportMsg] = useState("")
   const [easyInputs, setEasyInputs] = useState<Record<string, number>>({})
   const [strides, setStrides] = useState<Record<string, boolean>>({})
   const [longMin, setLongMin] = useState(75)
@@ -181,6 +207,42 @@ export default function PlannerPage() {
   const neededEasyMin =
     totalQWorkMin > 0 ? Math.round((totalQWorkMin / 0.25) * 0.75) - totalEasyAll : 0
 
+  // Export handler
+  const workoutPreview = week
+    .filter((d) => d.type && d.type !== "rest")
+    .map((d) => ({
+      day: d.day,
+      name:
+        d.type === "quality" && d.template
+          ? `NSA: ${d.template.name} sub-T`
+          : d.type === "easy"
+            ? "Easy run"
+            : d.type === "long"
+              ? "Long run"
+              : "",
+    }))
+
+  const handleExport = async () => {
+    setExporting(true)
+    setExportMsg("")
+    try {
+      const res = await apiFetch<{ count: number }>("/api/intervals/export", {
+        method: "POST",
+        body: JSON.stringify({
+          week_data: week,
+          start_date: exportDate,
+          default_wu: defaultWu,
+          default_cd: defaultCd,
+        }),
+      })
+      setExportMsg(`Exported ${res.count} workouts`)
+    } catch (err) {
+      setExportMsg(err instanceof Error ? err.message : "Export failed")
+    } finally {
+      setExporting(false)
+    }
+  }
+
   // Reset handler
   const resetAll = () => {
     setWeek(initWeek())
@@ -279,6 +341,77 @@ export default function PlannerPage() {
               restDayCount={rDays.length}
               onReset={resetAll}
             />
+
+            {user && (
+              <Dialog onOpenChange={() => setExportMsg("")}>
+                <DialogTrigger className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors inline-flex items-center gap-1.5">
+                  <Upload className="size-3.5" />
+                  Export to Intervals.icu
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Export to Intervals.icu</DialogTitle>
+                  </DialogHeader>
+
+                  <div className="space-y-3">
+                    <label className="block text-xs font-medium">
+                      Week start date
+                      <Input
+                        type="date"
+                        className="mt-1"
+                        value={exportDate}
+                        onChange={(e) => setExportDate(e.target.value)}
+                      />
+                    </label>
+
+                    {workoutPreview.length > 0 ? (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Workouts to create:
+                        </p>
+                        <ul className="text-xs space-y-0.5">
+                          {workoutPreview.map((w) => (
+                            <li key={w.day} className="flex gap-2">
+                              <span className="font-medium w-8">{w.day}</span>
+                              <span className="text-muted-foreground">{w.name}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No workouts to export. Assign sessions to days first.
+                      </p>
+                    )}
+
+                    {exportMsg && (
+                      <p
+                        className={`text-xs font-medium ${
+                          exportMsg.startsWith("Exported")
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-destructive"
+                        }`}
+                      >
+                        {exportMsg}
+                      </p>
+                    )}
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      size="sm"
+                      disabled={exporting || workoutPreview.length === 0}
+                      onClick={handleExport}
+                    >
+                      {exporting ? "Exporting..." : "Export"}
+                    </Button>
+                    <DialogClose render={<Button variant="outline" size="sm" />}>
+                      Cancel
+                    </DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
 
           </div>
 
