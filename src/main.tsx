@@ -10,6 +10,8 @@ import CalculatorPage from "./pages/calculator"
 import PlannerPage from "./pages/planner"
 import GettingStartedPage from "./pages/getting-started"
 import ComparisonPage from "./pages/comparison"
+import LoginPage from "./pages/login"
+import RegisterPage from "./pages/register"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -23,6 +25,8 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/planner" element={<PlannerPage />} />
             <Route path="/getting-started" element={<GettingStartedPage />} />
             <Route path="/comparison" element={<ComparisonPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
