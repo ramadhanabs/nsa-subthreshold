@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { get5kPace, getHR, getPaceZones, fmtPace, type InputMode } from "@/lib/calculator"
 import TestTracker from "@/components/test-tracker"
 import ActivitiesList from "@/components/activities-list"
+import BudgetCalculator from "@/components/budget-calculator"
 
 interface TestResult {
   id: string
@@ -279,6 +280,9 @@ export default function DashboardPage() {
           Plan your week &rarr;
         </Link>
       </div>
+
+      {/* Training budget calculator */}
+      <BudgetCalculator />
 
       {/* Section 4: Progress */}
       <div>

@@ -118,6 +118,7 @@ describe("computeBudget", () => {
       baseline: 360,
       weeklyAdj: -0.15,        // recovery: 306 weekly budget
       lrMultiplier: 1.18,      // very high risk LR
+      qMultiplier: 1.2,
     })
     // raw LR = (360/7)*3*1.18 = 182, cap = 306*0.30 = 92
     expect(result.longRunCapped).toBe(true)
