@@ -1,16 +1,32 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Link, useLocation } from "react-router"
 import { Switch } from "@/components/ui/switch"
+import { useAuth } from "@/lib/auth-context"
+import { LogOut, User as UserIcon } from "lucide-react"
 
 export function Nav() {
   const { pathname } = useLocation()
+  const { user, logout } = useAuth()
   const [dark, setDark] = useState(() =>
     typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
   )
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener("click", handleClick, true)
+    return () => document.removeEventListener("click", handleClick, true)
+  }, [menuOpen])
 
   return (
     <nav className="max-w-[1280px] mx-auto px-5 pt-4 pb-2 flex items-center gap-4 text-sm">
@@ -33,6 +49,46 @@ export function Nav() {
       >
         Planner
       </Link>
+
+      {user ? (
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className="w-7 h-7 rounded-full bg-foreground/10 text-foreground text-xs font-medium flex items-center justify-center cursor-pointer"
+          >
+            {user.email[0].toUpperCase()}
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1 bg-background border border-border rounded-lg shadow-lg p-1 min-w-[160px] z-50">
+              <div className="text-xs text-muted-foreground px-2 py-1">{user.email}</div>
+              <div className="border-t border-border my-1" />
+              <Link
+                to="/dashboard"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-2 py-1.5 text-sm text-foreground hover:bg-foreground/5 rounded-md transition-colors"
+              >
+                <UserIcon className="w-4 h-4" />
+                Dashboard
+              </Link>
+              <button
+                onClick={() => { logout(); setMenuOpen(false) }}
+                className="flex items-center gap-2 px-2 py-1.5 text-sm text-foreground hover:bg-foreground/5 rounded-md transition-colors w-full text-left cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <Link
+          to="/login"
+          className="text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Login
+        </Link>
+      )}
+
       <div className="ml-auto flex items-center gap-2">
         <span className="text-xs text-muted-foreground">{dark ? "Dark" : "Light"}</span>
         <Switch checked={dark} onCheckedChange={setDark} />
