@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect"
 import { DatabaseServiceLive } from "./services/Database"
 import { AuthServiceLive } from "./services/Auth"
-import { CalculatorServiceLive } from "./services/Calculator"
+import { TestResultsServiceLive } from "./services/TestResults"
 import { PlannerServiceLive } from "./services/Planner"
 import { IntervalsServiceLive } from "./services/Intervals"
 import { WellnessServiceLive } from "./services/Wellness"
@@ -17,7 +17,7 @@ const main = Effect.gen(function* () {
 const MainLive = Layer.mergeAll(
   DatabaseServiceLive,
   AuthServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  CalculatorServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
+  TestResultsServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
   PlannerServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
   IntervalsServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
   WellnessServiceLive.pipe(Layer.provide(DatabaseServiceLive))

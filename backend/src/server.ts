@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { AuthService } from "./services/Auth"
-import { CalculatorService } from "./services/Calculator"
+import { TestResultsService } from "./services/TestResults"
 import { PlannerService } from "./services/Planner"
 import { IntervalsService } from "./services/Intervals"
 import { WellnessService } from "./services/Wellness"
@@ -42,7 +42,7 @@ const requireAuth = async (req: Request, auth: Effect.Effect.Success<typeof Auth
 
 export const startServer = Effect.gen(function* () {
   const auth = yield* AuthService
-  const calculator = yield* CalculatorService
+  const tests = yield* TestResultsService
   const planner = yield* PlannerService
   const intervals = yield* IntervalsService
   const wellness = yield* WellnessService
@@ -101,34 +101,37 @@ export const startServer = Effect.gen(function* () {
           return jsonResponse(result, origin)
         }
 
-        // POST /api/calculator
-        if (req.method === "POST" && pathname === "/api/calculator") {
+        // POST /api/tests
+        if (req.method === "POST" && pathname === "/api/tests") {
           const authResult = await requireAuth(req, auth, origin)
           if ("error" in authResult) return authResult.error
-          const { input_mode, input_a, input_b, max_hr } = (await req.json()) as any
+          const { test_type, test_date, value_a, value_b, max_hr, notes } = (await req.json()) as any
           const result = await Effect.runPromise(
-            calculator.save(authResult.user.id, { input_mode, input_a, input_b, max_hr })
+            tests.save(authResult.user.id, { test_type, test_date, value_a, value_b, max_hr, notes })
           )
           return jsonResponse(result, origin)
         }
 
-        // GET /api/calculator or /api/calculator/:id
-        if (req.method === "GET" && pathname.startsWith("/api/calculator")) {
+        // GET /api/tests
+        if (req.method === "GET" && pathname === "/api/tests") {
           const authResult = await requireAuth(req, auth, origin)
           if ("error" in authResult) return authResult.error
-          const idSegment = pathname.slice("/api/calculator".length)
-          if (idSegment && idSegment !== "/") {
-            const id = idSegment.startsWith("/") ? idSegment.slice(1) : idSegment
-            const result = await Effect.runPromise(
-              calculator.getById(authResult.user.id, id)
-            )
-            if (!result) return errorResponse("Not found", 404, origin)
-            return jsonResponse(result, origin)
-          }
           const results = await Effect.runPromise(
-            calculator.list(authResult.user.id)
+            tests.list(authResult.user.id)
           )
           return jsonResponse(results, origin)
+        }
+
+        // DELETE /api/tests/:id
+        if (req.method === "DELETE" && pathname.startsWith("/api/tests/")) {
+          const authResult = await requireAuth(req, auth, origin)
+          if ("error" in authResult) return authResult.error
+          const id = pathname.slice("/api/tests/".length)
+          const deleted = await Effect.runPromise(
+            tests.remove(authResult.user.id, id)
+          )
+          if (!deleted) return errorResponse("Not found", 404, origin)
+          return jsonResponse({ ok: true }, origin)
         }
 
         // POST /api/planner

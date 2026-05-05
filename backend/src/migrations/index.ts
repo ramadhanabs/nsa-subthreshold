@@ -1,9 +1,11 @@
 import { Effect } from "effect"
 import { DatabaseService } from "../services/Database"
 import { up as migration001 } from "./001_initial"
+import { up as migration002 } from "./002_test_results"
 
 const migrations = [
   { name: "001_initial", up: migration001 },
+  { name: "002_test_results", up: migration002 },
 ]
 
 export const runMigrations = Effect.gen(function* () {
