@@ -33,6 +33,21 @@ export const Q_SESSION_PROFILES: RiskProfile<QSessionRisk>[] = [
   { key: "high_risk", label: "High risk", value: 1.75, color: "orange", warning: "Very long session, experienced athletes only" },
 ]
 
+// Derive LR and Q multipliers from weekly risk profile
+const DERIVED_MULTIPLIERS: Record<WeeklyRisk, { lr: number; q: number }> = {
+  recovery:        { lr: 0.85, q: 1.0 },
+  deload:          { lr: 0.92, q: 1.1 },
+  maintenance:     { lr: 1.00, q: 1.2 },
+  safe_build:      { lr: 1.00, q: 1.2 },
+  confident:       { lr: 1.07, q: 1.4 },
+  high_risk:       { lr: 1.12, q: 1.5 },
+  very_high_risk:  { lr: 1.18, q: 1.75 },
+}
+
+export function getDerivedMultipliers(weeklyRisk: WeeklyRisk): { lr: number; q: number } {
+  return DERIVED_MULTIPLIERS[weeklyRisk]
+}
+
 // baseline = (total running minutes last 42 days / 42) * 7
 export function calcBaseline(totalMinutes42d: number): number {
   return Math.round((totalMinutes42d / 42) * 7)
