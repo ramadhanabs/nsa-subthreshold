@@ -7,6 +7,7 @@ import { get5kPace, getHR, getPaceZones, fmtPace, type InputMode } from "@/lib/c
 import TestTracker from "@/components/test-tracker"
 import ActivitiesList from "@/components/activities-list"
 // import BudgetCalculator from "@/components/budget-calculator"
+import TrainingSummary from "@/components/training-summary"
 
 interface TestResult {
   id: string
@@ -283,6 +284,9 @@ export default function DashboardPage() {
 
       {/* Training budget calculator */}
       {/* <BudgetCalculator /> — hidden until Intervals.icu data available */}
+
+      {/* Training summary */}
+      {intervalsConnected && <TrainingSummary />}
 
       {/* Section 4: Progress */}
       <div>
