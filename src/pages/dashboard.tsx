@@ -65,6 +65,7 @@ export default function DashboardPage() {
   const [syncMsg, setSyncMsg] = useState("")
   const [connectLoading, setConnectLoading] = useState(false)
   const [syncLoading, setSyncLoading] = useState(false)
+  const [intervalsOpen, setIntervalsOpen] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -170,273 +171,293 @@ export default function DashboardPage() {
   const initials = user.email.slice(0, 2).toUpperCase()
 
   return (
-    <main className="max-w-[740px] mx-auto px-5 py-8 pb-12 space-y-6">
-      {/* Section 1: Profile header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-600 text-white text-sm font-medium flex items-center justify-center">
-            {initials}
+    <main className="max-w-[1100px] mx-auto px-5 py-8 pb-12 space-y-6">
+      {/* Two-column grid: left = user data, right = Intervals.icu data */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* ── Left column: User profile, parameters, zones, tests ── */}
+        <div className="space-y-6">
+          {/* Profile header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white text-sm font-medium flex items-center justify-center">
+                {initials}
+              </div>
+              <div>
+                <div className="text-sm font-medium">{user.email}</div>
+                <div className="text-xs text-muted-foreground">NSA Runner</div>
+              </div>
+            </div>
+            <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
+              Edit profile
+            </button>
           </div>
+
+          {/* Athlete parameters + Training zones */}
+          {derived ? (
+            <div className="space-y-4">
+              <div>
+                <div className="text-[13px] font-medium mb-3">Athlete parameters</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-muted rounded-lg p-2.5">
+                    <div className="text-[11px] text-muted-foreground">5K PB</div>
+                    <div className="text-base font-medium">{fmtPace(derived.fiveKTime)}</div>
+                  </div>
+                  <div className="bg-muted rounded-lg p-2.5">
+                    <div className="text-[11px] text-muted-foreground">Threshold pace</div>
+                    <div className="text-base font-medium">{fmtPace(derived.paceZones.threshold)}/km</div>
+                  </div>
+                  <div className="bg-muted rounded-lg p-2.5">
+                    <div className="text-[11px] text-muted-foreground">Max HR</div>
+                    <div className="text-base font-medium">{derived.hr.max} bpm</div>
+                  </div>
+                  <div className="bg-muted rounded-lg p-2.5">
+                    <div className="text-[11px] text-muted-foreground">LTHR</div>
+                    <div className="text-base font-medium">{derived.hr.lthr} bpm</div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[13px] font-medium mb-3">Training zones</div>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-sm bg-blue-500" />
+                    <div className="text-xs text-muted-foreground flex-1">Easy</div>
+                    <div className="text-xs font-medium">
+                      {fmtPace(derived.paceZones.long[1])}–{fmtPace(derived.paceZones.easyMax)}/km
+                    </div>
+                    <div className="text-[11px] text-muted-foreground min-w-[64px] text-right">
+                      &lt; {derived.hr.easy} bpm
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-sm bg-amber-500" />
+                    <div className="text-xs text-muted-foreground flex-1">Sub-threshold</div>
+                    <div className="text-xs font-medium">
+                      {fmtPace(derived.paceZones.short[0])}–{fmtPace(derived.paceZones.long[1])}/km
+                    </div>
+                    <div className="text-[11px] text-muted-foreground min-w-[64px] text-right">
+                      {derived.hr.subLow}–{derived.hr.subHigh} bpm
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-sm bg-red-500" />
+                    <div className="text-xs text-muted-foreground flex-1">LTHR ceiling</div>
+                    <div className="text-xs font-medium">—</div>
+                    <div className="text-[11px] text-red-700 dark:text-red-400 min-w-[64px] text-right">
+                      {derived.hr.lthr} bpm
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-muted rounded-lg p-4 text-sm text-muted-foreground">
+              {fetchError
+                ? "Failed to load test results."
+                : tests === null
+                  ? "Loading..."
+                  : "No test results yet — record your first test below"}
+            </div>
+          )}
+
+          {/* Test tracker */}
+          {tests && (
+            <div>
+              <TestTracker
+                tests={tests}
+                onAdd={handleAddTest}
+                onDelete={handleDeleteTest}
+              />
+            </div>
+          )}
+
+          {/* Quick actions */}
           <div>
-            <div className="text-sm font-medium">{user.email}</div>
-            <div className="text-xs text-muted-foreground">NSA Runner</div>
+            <div className="text-[13px] font-medium mb-3">Quick actions</div>
+            <div className="flex gap-2 flex-wrap">
+              <Link
+                to="/planner"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+              >
+                Plan next week
+              </Link>
+              <Link
+                to="/calculator"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+              >
+                Pace calculator
+              </Link>
+              <button
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+              >
+                Record a test
+              </button>
+            </div>
           </div>
         </div>
-        <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
-          Edit profile
-        </button>
-      </div>
 
-      {/* Section 2: Athlete parameters + Training zones */}
-      {derived ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Left: Athlete parameters */}
+        {/* ── Right column: Intervals.icu data ── */}
+        <div className="space-y-6">
+          {/* Intervals.icu connection (accordion) */}
+          <div className="bg-muted/50 rounded-xl">
+            <button
+              onClick={() => setIntervalsOpen(!intervalsOpen)}
+              className="flex items-center gap-2 w-full p-4 cursor-pointer"
+            >
+              <GlobeIcon />
+              <div className="text-[13px] font-medium">Intervals.icu</div>
+              <span className="relative flex h-2.5 w-2.5">
+                {intervalsConnected && (
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                )}
+                <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${intervalsConnected ? "bg-emerald-500" : "bg-red-500"}`} />
+              </span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={`ml-auto text-muted-foreground transition-transform duration-200 ${intervalsOpen ? "rotate-180" : ""}`}
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            <div
+              className={`grid transition-all duration-200 ease-in-out ${intervalsOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+            >
+              <div className="overflow-hidden">
+                <div className="px-4 pb-4 space-y-3">
+                  {intervalsConnected ? (
+                    <>
+                      <div className="text-sm text-muted-foreground">
+                        Connected {intervalsAthleteId ? `\u2014 Athlete ${intervalsAthleteId}` : ""}
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <button
+                          onClick={handleSync}
+                          disabled={syncLoading}
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
+                        >
+                          {syncLoading ? "Syncing..." : "Sync wellness"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIntervalsConnected(false)
+                            setIntervalsAthleteId("")
+                            setWellness(null)
+                            setSyncMsg("")
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                      {syncMsg && <div className="text-xs text-muted-foreground">{syncMsg}</div>}
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm text-muted-foreground">
+                        Connect your Intervals.icu account to sync wellness data
+                      </div>
+                      <form onSubmit={handleIntervalsConnect} className="flex flex-col gap-2">
+                        <Input
+                          placeholder="Athlete ID"
+                          value={connectAthleteId}
+                          onChange={(e) => setConnectAthleteId(e.target.value)}
+                          required
+                        />
+                        <Input
+                          placeholder="API key"
+                          type="password"
+                          value={connectApiKey}
+                          onChange={(e) => setConnectApiKey(e.target.value)}
+                          required
+                        />
+                        <button
+                          type="submit"
+                          disabled={connectLoading}
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50 self-start"
+                        >
+                          {connectLoading ? "Connecting..." : "Connect"}
+                        </button>
+                      </form>
+                      {connectMsg && <div className="text-xs text-muted-foreground">{connectMsg}</div>}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Training summary */}
+          {intervalsConnected && <TrainingSummary />}
+
+          {/* Progress */}
           <div>
-            <div className="text-[13px] font-medium mb-3">Athlete parameters</div>
+            <div className="text-[13px] font-medium mb-3">Progress</div>
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-muted rounded-lg p-2.5">
-                <div className="text-[11px] text-muted-foreground">5K PB</div>
-                <div className="text-base font-medium">{fmtPace(derived.fiveKTime)}</div>
+                <div className="text-[0.65rem] text-muted-foreground">CTL</div>
+                <div className="text-xl font-medium font-mono">
+                  {wellness?.ctl != null ? Math.round(wellness.ctl) : "\u2014"}
+                </div>
+                <div className="text-[0.65rem] text-muted-foreground">chronic training load</div>
               </div>
               <div className="bg-muted rounded-lg p-2.5">
-                <div className="text-[11px] text-muted-foreground">Threshold pace</div>
-                <div className="text-base font-medium">{fmtPace(derived.paceZones.threshold)}/km</div>
+                <div className="text-[0.65rem] text-muted-foreground">Resting HR</div>
+                <div className="text-xl font-medium font-mono">
+                  {wellness?.restingHR != null ? Math.round(wellness.restingHR) : "\u2014"}
+                </div>
+                <div className="text-[0.65rem] text-muted-foreground">avg last 7d</div>
               </div>
               <div className="bg-muted rounded-lg p-2.5">
-                <div className="text-[11px] text-muted-foreground">Max HR</div>
-                <div className="text-base font-medium">{derived.hr.max} bpm</div>
+                <div className="text-[0.65rem] text-muted-foreground">Week streak</div>
+                <div className="text-xl font-medium font-mono">{"\u2014"}</div>
+                <div className="text-[0.65rem] text-muted-foreground">consecutive</div>
               </div>
               <div className="bg-muted rounded-lg p-2.5">
-                <div className="text-[11px] text-muted-foreground">LTHR</div>
-                <div className="text-base font-medium">{derived.hr.lthr} bpm</div>
+                <div className="text-[0.65rem] text-muted-foreground">Phase</div>
+                <div className="text-xl font-medium font-mono">{"\u2014"}</div>
+                <div className="text-[0.65rem] text-muted-foreground">
+                  {intervalsConnected ? "current block" : "connect Intervals.icu"}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Right: Training zones */}
+          {/* This week */}
           <div>
-            <div className="text-[13px] font-medium mb-3">Training zones</div>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-sm bg-blue-500" />
-                <div className="text-xs text-muted-foreground flex-1">Easy</div>
-                <div className="text-xs font-medium">
-                  {fmtPace(derived.paceZones.long[1])}–{fmtPace(derived.paceZones.easyMax)}/km
+            <div className="flex justify-between items-center mb-3">
+              <div className="text-[13px] font-medium">This week</div>
+              <div className="text-[11px] text-muted-foreground">{getWeekRange()}</div>
+            </div>
+            <div className="grid grid-cols-7 gap-1 mb-3">
+              {DAYS.map((day) => (
+                <div key={day} className="text-center">
+                  <div className="text-[10px] text-muted-foreground mb-1">{day}</div>
+                  <div className="h-12 rounded-md bg-muted flex items-center justify-center">
+                    <div className="text-[10px] text-muted-foreground">—</div>
+                  </div>
                 </div>
-                <div className="text-[11px] text-muted-foreground min-w-[64px] text-right">
-                  &lt; {derived.hr.easy} bpm
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-sm bg-amber-500" />
-                <div className="text-xs text-muted-foreground flex-1">Sub-threshold</div>
-                <div className="text-xs font-medium">
-                  {fmtPace(derived.paceZones.short[0])}–{fmtPace(derived.paceZones.long[1])}/km
-                </div>
-                <div className="text-[11px] text-muted-foreground min-w-[64px] text-right">
-                  {derived.hr.subLow}–{derived.hr.subHigh} bpm
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-sm bg-red-500" />
-                <div className="text-xs text-muted-foreground flex-1">LTHR ceiling</div>
-                <div className="text-xs font-medium">—</div>
-                <div className="text-[11px] text-red-700 dark:text-red-400 min-w-[64px] text-right">
-                  {derived.hr.lthr} bpm
-                </div>
-              </div>
+              ))}
             </div>
+            <Link
+              to="/planner"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Plan your week &rarr;
+            </Link>
           </div>
-        </div>
-      ) : (
-        <div className="bg-muted rounded-lg p-4 text-sm text-muted-foreground">
-          {fetchError
-            ? "Failed to load test results."
-            : tests === null
-              ? "Loading..."
-              : "No test results yet — record your first test below"}
-        </div>
-      )}
 
-      {/* Section 3: This week */}
-      <div>
-        <div className="flex justify-between items-center mb-3">
-          <div className="text-[13px] font-medium">This week</div>
-          <div className="text-[11px] text-muted-foreground">{getWeekRange()}</div>
-        </div>
-        <div className="grid grid-cols-7 gap-1 mb-3">
-          {DAYS.map((day) => (
-            <div key={day} className="text-center">
-              <div className="text-[10px] text-muted-foreground mb-1">{day}</div>
-              <div className="h-12 rounded-md bg-muted flex items-center justify-center">
-                <div className="text-[10px] text-muted-foreground">—</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <Link
-          to="/planner"
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Plan your week &rarr;
-        </Link>
-      </div>
-
-      {/* Training budget calculator */}
-      {/* <BudgetCalculator /> — hidden until Intervals.icu data available */}
-
-      {/* Training summary */}
-      {intervalsConnected && <TrainingSummary />}
-
-      {/* Section 4: Progress */}
-      <div>
-        <div className="text-[13px] font-medium mb-3">Progress</div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div className="bg-muted rounded-lg p-2.5">
-            <div className="text-[0.65rem] text-muted-foreground">CTL</div>
-            <div className="text-xl font-medium font-mono">
-              {wellness?.ctl != null ? Math.round(wellness.ctl) : "\u2014"}
-            </div>
-            <div className="text-[0.65rem] text-muted-foreground">chronic training load</div>
-          </div>
-          <div className="bg-muted rounded-lg p-2.5">
-            <div className="text-[0.65rem] text-muted-foreground">Resting HR</div>
-            <div className="text-xl font-medium font-mono">
-              {wellness?.restingHR != null ? Math.round(wellness.restingHR) : "\u2014"}
-            </div>
-            <div className="text-[0.65rem] text-muted-foreground">avg last 7d</div>
-          </div>
-          <div className="bg-muted rounded-lg p-2.5">
-            <div className="text-[0.65rem] text-muted-foreground">Week streak</div>
-            <div className="text-xl font-medium font-mono">{"\u2014"}</div>
-            <div className="text-[0.65rem] text-muted-foreground">consecutive</div>
-          </div>
-          <div className="bg-muted rounded-lg p-2.5">
-            <div className="text-[0.65rem] text-muted-foreground">Phase</div>
-            <div className="text-xl font-medium font-mono">{"\u2014"}</div>
-            <div className="text-[0.65rem] text-muted-foreground">
-              {intervalsConnected ? "current block" : "connect Intervals.icu"}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Activities list (only when Intervals.icu connected) */}
-      {intervalsConnected && <ActivitiesList />}
-
-      {/* Test tracker */}
-      {tests && (
-        <div>
-          <TestTracker
-            tests={tests}
-            onAdd={handleAddTest}
-            onDelete={handleDeleteTest}
-          />
-        </div>
-      )}
-
-      {/* Section 5: Intervals.icu */}
-      <div className="bg-muted/50 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <GlobeIcon />
-          <div className="text-[13px] font-medium">Intervals.icu</div>
-          <span className="relative flex h-2.5 w-2.5">
-            {intervalsConnected && (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            )}
-            <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${intervalsConnected ? "bg-emerald-500" : "bg-red-500"}`} />
-          </span>
-        </div>
-
-        {intervalsConnected ? (
-          <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
-              Connected {intervalsAthleteId ? `\u2014 Athlete ${intervalsAthleteId}` : ""}
-            </div>
-            <div className="flex gap-2 items-center">
-              <button
-                onClick={handleSync}
-                disabled={syncLoading}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
-              >
-                {syncLoading ? "Syncing..." : "Sync wellness"}
-              </button>
-              <button
-                onClick={() => {
-                  setIntervalsConnected(false)
-                  setIntervalsAthleteId("")
-                  setWellness(null)
-                  setSyncMsg("")
-                }}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Disconnect
-              </button>
-            </div>
-            {syncMsg && <div className="text-xs text-muted-foreground">{syncMsg}</div>}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
-              Connect your Intervals.icu account to sync wellness data
-            </div>
-            <form onSubmit={handleIntervalsConnect} className="flex flex-col sm:flex-row gap-2">
-              <Input
-                placeholder="Athlete ID"
-                value={connectAthleteId}
-                onChange={(e) => setConnectAthleteId(e.target.value)}
-                required
-                className="flex-1"
-              />
-              <Input
-                placeholder="API key"
-                type="password"
-                value={connectApiKey}
-                onChange={(e) => setConnectApiKey(e.target.value)}
-                required
-                className="flex-1"
-              />
-              <button
-                type="submit"
-                disabled={connectLoading}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
-              >
-                {connectLoading ? "Connecting..." : "Connect"}
-              </button>
-            </form>
-            {connectMsg && <div className="text-xs text-muted-foreground">{connectMsg}</div>}
-          </div>
-        )}
-      </div>
-
-      {/* Section 6: Quick actions */}
-      <div>
-        <div className="text-[13px] font-medium mb-3">Quick actions</div>
-        <div className="flex gap-2 flex-wrap">
-          <Link
-            to="/planner"
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-          >
-            Plan next week
-          </Link>
-          <Link
-            to="/calculator"
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-          >
-            Pace calculator
-          </Link>
-          <button
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-          >
-            Record a test
-          </button>
-          <button
-            onClick={intervalsConnected ? handleSync : undefined}
-            disabled={!intervalsConnected}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
-          >
-            Sync wellness
-          </button>
+          {/* Activities list */}
+          {intervalsConnected && <ActivitiesList />}
         </div>
       </div>
     </main>
