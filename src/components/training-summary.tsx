@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { apiFetch } from "@/lib/api"
+import { assessEligibility, type EligibilityTier } from "@/lib/budget"
 
 interface ActivityRecord {
   distance_m: number | null
@@ -14,6 +15,14 @@ function fmtHoursMin(mins: number): string {
   const h = Math.floor(mins / 60)
   const m = Math.round(mins % 60)
   return `${h}h ${m < 10 ? "0" : ""}${m}m`
+}
+
+const TIER_COLORS: Record<EligibilityTier, string> = {
+  not_ready: "bg-red-500",
+  foundation: "bg-amber-500",
+  transition: "bg-yellow-500",
+  full_nsa: "bg-emerald-500",
+  advanced_nsa: "bg-blue-500",
 }
 
 export default function TrainingSummary() {
@@ -65,6 +74,10 @@ export default function TrainingSummary() {
 
   if (error) return null
 
+  const eligibility = weeklyHours != null && weeklyDist != null
+    ? assessEligibility(weeklyHours, weeklyDist, longestRun ?? 0)
+    : null
+
   return (
     <div>
       <div className="text-[13px] font-medium mb-3">Training summary</div>
@@ -91,6 +104,30 @@ export default function TrainingSummary() {
           <div className="text-[0.65rem] text-muted-foreground">last 90 days</div>
         </div>
       </div>
+      {eligibility && (
+        <div className="mt-3 space-y-2">
+          <div className="bg-muted rounded-lg p-2.5 flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${TIER_COLORS[eligibility.tier]}`} />
+            <span className="text-[13px] font-medium">{eligibility.tierLabel}</span>
+            <span className="text-[0.65rem] text-muted-foreground">
+              — {eligibility.qSessions} Q session{eligibility.qSessions !== 1 ? "s" : ""}/week
+            </span>
+          </div>
+          <div className="flex gap-4 text-[0.65rem] text-muted-foreground px-1">
+            {eligibility.avgPace > 0 && (
+              <span>Avg pace: {eligibility.avgPace.toFixed(1)} min/km</span>
+            )}
+            <span>Daily avg: {Math.round(eligibility.dailyAvgMin)} min</span>
+            <span>LR budget: {Math.round(eligibility.formulaLR)} min</span>
+          </div>
+          {eligibility.lrWarning && (
+            <div className="text-[0.65rem] text-orange-600 dark:text-orange-400 flex items-start gap-1 px-1">
+              <span className="shrink-0">⚠</span>
+              <span>{eligibility.lrWarning}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

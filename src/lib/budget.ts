@@ -156,3 +156,53 @@ export function computeBudget(params: {
     easyPct, qPct, lrPct, isWithinBudget, isEasyViable, isRatioOk, warnings,
   }
 }
+
+export type EligibilityTier = "not_ready" | "foundation" | "transition" | "full_nsa" | "advanced_nsa"
+
+export interface EligibilityResult {
+  tier: EligibilityTier
+  tierLabel: string
+  qSessions: number
+  avgPace: number          // min/km
+  dailyAvgMin: number
+  formulaLR: number        // daily_avg × 3
+  estLongestRunMin: number // longest_run_km × avg_pace
+  lrWarning: string | null
+}
+
+const TIERS: { max: number; tier: EligibilityTier; label: string; q: number }[] = [
+  { max: 180, tier: "not_ready",    label: "Not ready",    q: 0 },
+  { max: 250, tier: "foundation",   label: "Foundation",   q: 1 },
+  { max: 300, tier: "transition",   label: "Transition",   q: 2 },
+  { max: 420, tier: "full_nsa",     label: "Full NSA",     q: 3 },
+  { max: Infinity, tier: "advanced_nsa", label: "Advanced NSA", q: 3 },
+]
+
+export function assessEligibility(
+  baselineMin: number,
+  avgWeeklyKm: number,
+  longestRunKm: number,
+): EligibilityResult {
+  const matched = TIERS.find(t => baselineMin < t.max) ?? TIERS[TIERS.length - 1]
+
+  const avgPace = avgWeeklyKm > 0 ? baselineMin / avgWeeklyKm : 0
+  const dailyAvgMin = baselineMin / 7
+  const formulaLR = dailyAvgMin * 3
+  const estLongestRunMin = longestRunKm * avgPace
+
+  let lrWarning: string | null = null
+  if (avgWeeklyKm > 0 && longestRunKm > 0 && formulaLR > estLongestRunMin * 1.15) {
+    lrWarning = "Your calculated long run budget exceeds your longest run by >15%, build up gradually"
+  }
+
+  return {
+    tier: matched.tier,
+    tierLabel: matched.label,
+    qSessions: matched.q,
+    avgPace,
+    dailyAvgMin,
+    formulaLR,
+    estLongestRunMin,
+    lrWarning,
+  }
+}

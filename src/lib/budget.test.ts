@@ -7,6 +7,7 @@ import {
   calcEasyRunMin,
   fmtHoursMin,
   computeBudget,
+  assessEligibility,
 } from "./budget"
 
 describe("calcBaseline", () => {
@@ -123,5 +124,65 @@ describe("computeBudget", () => {
     // raw LR = (360/7)*3*1.18 = 182, cap = 306*0.30 = 92
     expect(result.longRunCapped).toBe(true)
     expect(result.warnings.some(w => w.includes("Long run capped"))).toBe(true)
+  })
+})
+
+describe("assessEligibility", () => {
+  it("returns not_ready for baseline < 180 min", () => {
+    const result = assessEligibility(150, 30, 10)
+    expect(result.tier).toBe("not_ready")
+    expect(result.qSessions).toBe(0)
+  })
+
+  it("returns foundation for baseline 180-250", () => {
+    const result = assessEligibility(200, 40, 12)
+    expect(result.tier).toBe("foundation")
+    expect(result.qSessions).toBe(1)
+  })
+
+  it("returns transition for baseline 250-300", () => {
+    const result = assessEligibility(270, 50, 15)
+    expect(result.tier).toBe("transition")
+    expect(result.qSessions).toBe(2)
+  })
+
+  it("returns full_nsa for baseline 300-420", () => {
+    const result = assessEligibility(360, 60, 20)
+    expect(result.tier).toBe("full_nsa")
+    expect(result.qSessions).toBe(3)
+  })
+
+  it("returns advanced_nsa for baseline 420+", () => {
+    const result = assessEligibility(480, 80, 30)
+    expect(result.tier).toBe("advanced_nsa")
+    expect(result.qSessions).toBe(3)
+  })
+
+  it("computes avg pace from baseline and distance", () => {
+    const result = assessEligibility(360, 60, 20)
+    expect(result.avgPace).toBeCloseTo(6.0)
+  })
+
+  it("computes daily avg and formula LR", () => {
+    const result = assessEligibility(360, 60, 20)
+    expect(result.dailyAvgMin).toBeCloseTo(360 / 7)
+    expect(result.formulaLR).toBeCloseTo((360 / 7) * 3)
+  })
+
+  it("warns when formula LR exceeds actual longest run by >15%", () => {
+    const result = assessEligibility(360, 60, 10)
+    expect(result.lrWarning).not.toBeNull()
+  })
+
+  it("no warning when longest run covers formula LR", () => {
+    const result = assessEligibility(360, 60, 30)
+    expect(result.lrWarning).toBeNull()
+  })
+
+  it("handles zero distance gracefully", () => {
+    const result = assessEligibility(360, 0, 0)
+    expect(result.tier).toBe("full_nsa")
+    expect(result.avgPace).toBe(0)
+    expect(result.lrWarning).toBeNull()
   })
 })
