@@ -170,12 +170,21 @@ export interface EligibilityResult {
   lrWarning: string | null
 }
 
-const TIERS: { max: number; tier: EligibilityTier; label: string; q: number }[] = [
-  { max: 180, tier: "not_ready",    label: "Not ready",    q: 0 },
-  { max: 250, tier: "foundation",   label: "Foundation",   q: 1 },
-  { max: 300, tier: "transition",   label: "Transition",   q: 2 },
-  { max: 420, tier: "full_nsa",     label: "Full NSA",     q: 3 },
-  { max: Infinity, tier: "advanced_nsa", label: "Advanced NSA", q: 3 },
+export interface TierDef {
+  min: number
+  max: number
+  tier: EligibilityTier
+  label: string
+  q: number
+  range: string
+}
+
+export const TIERS: TierDef[] = [
+  { min: 0,   max: 180,      tier: "not_ready",     label: "Not ready",     q: 0, range: "< 3h/week" },
+  { min: 180, max: 250,      tier: "foundation",    label: "Foundation",    q: 1, range: "3–4h/week" },
+  { min: 250, max: 300,      tier: "transition",    label: "Transition",    q: 2, range: "4–5h/week" },
+  { min: 300, max: 420,      tier: "full_nsa",      label: "Full NSA",      q: 3, range: "5–7h/week" },
+  { min: 420, max: Infinity,  tier: "advanced_nsa",  label: "Advanced NSA",  q: 3, range: "7h+/week" },
 ]
 
 export function assessEligibility(

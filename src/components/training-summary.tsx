@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { apiFetch } from "@/lib/api"
-import { assessEligibility, type EligibilityTier } from "@/lib/budget"
+import { assessEligibility, TIERS, type EligibilityTier } from "@/lib/budget"
 
 interface ActivityRecord {
   distance_m: number | null
@@ -106,12 +106,36 @@ export default function TrainingSummary() {
       </div>
       {eligibility && (
         <div className="mt-3 space-y-2">
-          <div className="bg-muted rounded-lg p-2.5 flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${TIER_COLORS[eligibility.tier]}`} />
-            <span className="text-[13px] font-medium">{eligibility.tierLabel}</span>
-            <span className="text-[0.65rem] text-muted-foreground">
-              — {eligibility.qSessions} Q session{eligibility.qSessions !== 1 ? "s" : ""}/week
-            </span>
+          <div className="text-[13px] font-medium">NSA eligibility</div>
+          <div className="flex flex-col gap-1">
+            {TIERS.map((t) => {
+              const isCurrent = t.tier === eligibility.tier
+              return (
+                <div
+                  key={t.tier}
+                  className={`rounded-lg p-2 flex items-center gap-2 transition-colors ${
+                    isCurrent ? "bg-muted" : "opacity-40"
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${TIER_COLORS[t.tier]}`} />
+                  <span className={`text-xs ${isCurrent ? "font-medium" : ""}`}>{t.label}</span>
+                  <span className="text-[0.65rem] text-muted-foreground">{t.range}</span>
+                  <span className="text-[0.65rem] text-muted-foreground ml-auto">
+                    {t.q} Q{t.q !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          <div className="bg-muted/60 rounded-lg p-2.5 text-[0.65rem] text-muted-foreground space-y-1">
+            <div>
+              Your 42-day avg is <span className="text-foreground font-medium">{fmtHoursMin(weeklyHours!)}</span>/week
+              ({Math.round(weeklyHours!)} min), placing you in the <span className="text-foreground font-medium">{eligibility.tierLabel}</span> tier
+              ({TIERS.find(t => t.tier === eligibility.tier)?.range}).
+              {eligibility.qSessions < 3
+                ? ` Build to ${TIERS[TIERS.findIndex(t => t.tier === eligibility.tier) + 1]?.range ?? "more volume"} to unlock ${TIERS[TIERS.findIndex(t => t.tier === eligibility.tier) + 1]?.q ?? 3} Q sessions.`
+                : ""}
+            </div>
           </div>
           <div className="flex gap-4 text-[0.65rem] text-muted-foreground px-1">
             {eligibility.avgPace > 0 && (
