@@ -340,6 +340,12 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 mb-3">
           <GlobeIcon />
           <div className="text-[13px] font-medium">Intervals.icu</div>
+          <span className="relative flex h-2.5 w-2.5">
+            {intervalsConnected && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            )}
+            <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${intervalsConnected ? "bg-emerald-500" : "bg-red-500"}`} />
+          </span>
         </div>
 
         {intervalsConnected ? (
