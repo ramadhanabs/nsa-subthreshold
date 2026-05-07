@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Q_TEMPLATES, totalSessionMin, type QTemplate } from "@/lib/planner-data"
-import { fmtPace, type PaceZones } from "@/lib/calculator"
+import { fmtPace, type PaceZones, paceFromPct } from "@/lib/calculator"
 
 interface QualityPaletteProps {
   catFilter: string
@@ -24,9 +24,7 @@ interface QualityPaletteProps {
 }
 
 function paceRangeForTemplate(t: QTemplate, pz: PaceZones): [number, number] {
-  if (t.id.startsWith("s")) return pz.short
-  if (t.id.startsWith("m")) return pz.medium
-  return pz.long
+  return [paceFromPct(pz.threshold, t.pctHigh), paceFromPct(pz.threshold, t.pctLow)]
 }
 
 const CATEGORIES = [

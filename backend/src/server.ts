@@ -6,6 +6,8 @@ import { IntervalsService } from "./services/Intervals"
 import { WellnessService } from "./services/Wellness"
 import { ActivitiesService } from "./services/Activities"
 import { WorkoutExportService } from "./services/WorkoutExport"
+import { BlockService } from "./services/Block"
+import { AssessmentService } from "./services/Assessment"
 
 const ALLOWED_ORIGINS = [
   "https://subthreshold.bagus.icu",
@@ -50,6 +52,8 @@ export const startServer = Effect.gen(function* () {
   const wellness = yield* WellnessService
   const activities = yield* ActivitiesService
   const workoutExport = yield* WorkoutExportService
+  const blocks = yield* BlockService
+  const assessment = yield* AssessmentService
 
   const port = Number(process.env.PORT) || 3002
 
@@ -242,6 +246,76 @@ export const startServer = Effect.gen(function* () {
             activities.list(authResult.user.id, from, to)
           )
           return jsonResponse(records, origin)
+        }
+
+        // POST /api/block/assess
+        if (req.method === "POST" && pathname === "/api/block/assess") {
+          const authResult = await requireAuth(req, auth, origin)
+          if ("error" in authResult) return authResult.error
+          const result = await Effect.runPromise(
+            assessment.assess(authResult.user.id)
+          ).catch((e) => { throw e })
+          return jsonResponse(result, origin)
+        }
+
+        // POST /api/block
+        if (req.method === "POST" && pathname === "/api/block") {
+          const authResult = await requireAuth(req, auth, origin)
+          if ("error" in authResult) return authResult.error
+          const body = (await req.json()) as any
+          const result = await Effect.runPromise(
+            blocks.save(authResult.user.id, body)
+          )
+          return jsonResponse(result, origin, 201)
+        }
+
+        // POST /api/block/:id/push
+        if (req.method === "POST" && pathname.match(/^\/api\/block\/[^/]+\/push$/)) {
+          const authResult = await requireAuth(req, auth, origin)
+          if ("error" in authResult) return authResult.error
+          const id = pathname.split("/")[3]
+          const { mode } = (await req.json()) as { mode: "override" | "add_alongside" }
+          // Get block + events
+          const blockData = await Effect.runPromise(blocks.getById(authResult.user.id, id))
+          if (!blockData) return errorResponse("Not found", 404, origin)
+          // Push events to Intervals.icu via workoutExport
+          const exported = await Effect.runPromise(
+            workoutExport.exportWeek(authResult.user.id, {
+              week_data: JSON.parse(blockData.weeks),
+              start_date: blockData.start_date,
+              default_wu: 10,
+              default_cd: 5,
+            })
+          ).catch((e) => { throw e })
+          // Update sync data
+          await Effect.runPromise(
+            blocks.setSyncData(authResult.user.id, id, { pushedAt: new Date().toISOString(), pushMode: mode, eventCount: exported })
+          )
+          return jsonResponse({ ok: true, exported }, origin)
+        }
+
+        // GET /api/block or /api/block/:id
+        if (req.method === "GET" && pathname.startsWith("/api/block")) {
+          const authResult = await requireAuth(req, auth, origin)
+          if ("error" in authResult) return authResult.error
+          const idSegment = pathname.slice("/api/block".length)
+          if (idSegment && idSegment !== "/") {
+            const id = idSegment.startsWith("/") ? idSegment.slice(1) : idSegment
+            const result = await Effect.runPromise(blocks.getById(authResult.user.id, id))
+            if (!result) return errorResponse("Not found", 404, origin)
+            return jsonResponse(result, origin)
+          }
+          const results = await Effect.runPromise(blocks.list(authResult.user.id))
+          return jsonResponse(results, origin)
+        }
+
+        // DELETE /api/block/:id
+        if (req.method === "DELETE" && pathname.startsWith("/api/block/")) {
+          const authResult = await requireAuth(req, auth, origin)
+          if ("error" in authResult) return authResult.error
+          const id = pathname.slice("/api/block/".length)
+          await Effect.runPromise(blocks.delete(authResult.user.id, id))
+          return jsonResponse({ ok: true }, origin)
         }
 
         return errorResponse("Not found", 404, origin)

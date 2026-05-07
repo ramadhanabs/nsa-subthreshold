@@ -49,6 +49,12 @@ export function Nav() {
       >
         Planner
       </Link>
+      <Link
+        to="/block-generator"
+        className={pathname === "/block-generator" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground transition-colors"}
+      >
+        Block Generator
+      </Link>
 
       <div className="ml-auto flex items-center gap-3">
         <span className="text-xs text-muted-foreground">{dark ? "Dark" : "Light"}</span>

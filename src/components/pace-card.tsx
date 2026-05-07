@@ -11,17 +11,17 @@ const intervals = [
   {
     label: "Short",
     key: "short" as const,
-    tip: "CV pace x 1.03–1.08. Used for ~1 km or ~4 min efforts. Slightly faster than threshold — sharpens turnover while staying sub-LT2.",
+    tip: "99–101% of threshold pace. Used for ~3–4 min efforts. Closest to threshold — sharpens turnover while staying sub-LT2.",
   },
   {
     label: "Medium",
     key: "medium" as const,
-    tip: "CV pace x 1.07–1.11. Used for ~1.6 km or ~6 min efforts. The core NSA session — steady sub-threshold pace that builds lactate clearance.",
+    tip: "97–99% of threshold pace. Used for ~5–8 min efforts. The core NSA session — steady sub-threshold pace that builds lactate clearance.",
   },
   {
     label: "Long",
     key: "long" as const,
-    tip: "CV pace x 1.10–1.14. Used for ~2–3 km or ~8–12 min efforts. Slowest sub-T pace — builds deep aerobic endurance near LT2.",
+    tip: "95–97% of threshold pace. Used for ~10–15 min efforts. Slowest sub-T pace — builds deep aerobic endurance near LT2.",
   },
 ]
 
@@ -50,9 +50,9 @@ export function PaceCard({ paceZones }: PaceCardProps) {
               <TooltipTrigger className="cursor-help"><InfoIcon />
               </TooltipTrigger>
               <TooltipContent className="max-w-[280px] text-xs leading-relaxed">
-                Estimated critical velocity (CV) = 5K pace x 1.02. Derived from the
-                Daniels/Tinman VDOT equivalency tables. CV approximates the pace you
-                could hold for ~30–40 min — just below lactate threshold (LT2).
+                Estimated threshold pace = 5K pace x 1.05. Derived from Daniels' VDOT
+                tables. This approximates the pace you could sustain for ~40–60 min —
+                your lactate threshold (LT2).
               </TooltipContent>
             </Tooltip>
           </div>

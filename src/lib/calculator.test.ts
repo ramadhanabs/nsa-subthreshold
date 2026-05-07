@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { get5kPace, getHR, getWorkouts, getPaceZones, fmtPace } from "./calculator"
+import { get5kPace, getHR, getWorkouts, getPaceZones, getThreshold, paceFromPct, fmtPace } from "./calculator"
 
 describe("get5kPace", () => {
   it("returns pace per km from 5k time", () => {
@@ -69,17 +69,48 @@ describe("getWorkouts", () => {
   })
 })
 
+describe("getThreshold", () => {
+  it("calculates threshold as 5K pace × 1.05", () => {
+    expect(getThreshold(290)).toBeCloseTo(304.5, 1)
+    expect(getThreshold(294)).toBeCloseTo(308.7, 1)
+  })
+})
+
+describe("paceFromPct", () => {
+  it("returns threshold pace at 100%", () => {
+    expect(paceFromPct(304.5, 100)).toBeCloseTo(304.5, 1)
+  })
+
+  it("returns faster pace at >100%", () => {
+    // 101% → faster → lower s/km
+    expect(paceFromPct(304.5, 101)).toBeLessThan(304.5)
+  })
+
+  it("returns slower pace at <100%", () => {
+    // 95% → slower → higher s/km
+    expect(paceFromPct(304.5, 95)).toBeGreaterThan(304.5)
+  })
+})
+
 describe("getPaceZones", () => {
-  it("derives pace ranges from 5k pace", () => {
-    const pz = getPaceZones(294)
-    // threshold = 294 * 1.02 = 299.88
-    expect(pz.threshold).toBeCloseTo(299.88, 1)
+  it("derives pace ranges from 5k pace using threshold", () => {
+    const pz = getPaceZones(290)
+    // threshold = 290 * 1.05 = 304.5
+    expect(pz.threshold).toBeCloseTo(304.5, 1)
     // short range should be faster than medium
     expect(pz.short[0]).toBeLessThan(pz.medium[0])
     // long range should be slowest
     expect(pz.long[1]).toBeGreaterThan(pz.medium[1])
     // easy max should be slower than all intervals
     expect(pz.easyMax).toBeGreaterThan(pz.long[1])
+  })
+
+  it("short zone is 99-101% of threshold", () => {
+    const pz = getPaceZones(290)
+    const tp = 290 * 1.05
+    // short[0] = faster end (101%), short[1] = slower end (99%)
+    expect(pz.short[0]).toBeCloseTo(tp / 1.01, 1)
+    expect(pz.short[1]).toBeCloseTo(tp / 0.99, 1)
   })
 })
 

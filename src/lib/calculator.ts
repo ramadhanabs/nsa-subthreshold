@@ -50,16 +50,27 @@ export function getHR(maxHR: number): HRZones {
   }
 }
 
+/** Threshold pace ≈ 5K pace × 1.05 (Daniels VDOT — pace sustainable ~40-60 min) */
+export function getThreshold(fkp: number): number {
+  return fkp * 1.05
+}
+
+/** Convert % of threshold to actual pace (s/km). pct=100 → threshold pace, pct>100 → faster */
+export function paceFromPct(threshold: number, pct: number): number {
+  return threshold / (pct / 100)
+}
+
 export function getWorkouts(fkp: number, wkMode: WkMode): Workout[] {
-  const cv = fkp * 1.02
+  const tp = getThreshold(fkp)
+  // pct = % of threshold pace (100% = threshold). >100% = faster, <100% = slower.
   const defs = [
-    { name: "Short sub-T session", pf: 1.055, rs: 60, z: "sub" as const, dm: 1000, ts: 240, reps: 10 },
-    { name: "Medium sub-T session", pf: 1.09, rs: 60, z: "sub" as const, dm: 1600, ts: 360, reps: 6 },
-    { name: "Long sub-T session", pf: 1.12, rs: 60, z: "sub" as const, dm: 2000, ts: 480, reps: 5 },
+    { name: "Short sub-T session", pct: 100, rs: 60, z: "sub" as const, dm: 1000, ts: 240, reps: 10 },
+    { name: "Medium sub-T session", pct: 98, rs: 60, z: "sub" as const, dm: 1600, ts: 360, reps: 6 },
+    { name: "Long sub-T session", pct: 96, rs: 60, z: "sub" as const, dm: 2000, ts: 480, reps: 5 },
   ]
 
   const intervals: Workout[] = defs.map((d) => {
-    const pace = cv * d.pf
+    const pace = tp / (d.pct / 100)
     const totalDist = d.dm * d.reps
     const totalTime = Math.round(pace * (totalDist / 1000))
     const detail = wkMode === "dist"
@@ -85,12 +96,12 @@ export interface PaceZones {
 }
 
 export function getPaceZones(fkp: number): PaceZones {
-  const cv = fkp * 1.02
+  const tp = getThreshold(fkp)
   return {
-    threshold: cv,
-    short: [cv * 1.03, cv * 1.08],
-    medium: [cv * 1.07, cv * 1.11],
-    long: [cv * 1.10, cv * 1.14],
+    threshold: tp,
+    short: [paceFromPct(tp, 101), paceFromPct(tp, 99)],   // 99–101% of threshold
+    medium: [paceFromPct(tp, 99), paceFromPct(tp, 97)],    // 97–99% of threshold
+    long: [paceFromPct(tp, 97), paceFromPct(tp, 95)],      // 95–97% of threshold
     easyMax: fkp * 1.38,
   }
 }

@@ -2,7 +2,7 @@ import { useDroppable, useDraggable } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
 import { Input } from "@/components/ui/input"
 import { totalSessionMin, type DaySlotData, type QTemplate } from "@/lib/planner-data"
-import { fmtPace, type PaceZones } from "@/lib/calculator"
+import { fmtPace, paceFromPct, type PaceZones } from "@/lib/calculator"
 
 interface DaySlotProps {
   slot: DaySlotData
@@ -32,9 +32,7 @@ const NUM_INPUT_CLS =
   "font-mono text-center text-sm [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
 
 function paceRangeForTemplate(t: QTemplate, pz: PaceZones): [number, number] {
-  if (t.id.startsWith("s")) return pz.short
-  if (t.id.startsWith("m")) return pz.medium
-  return pz.long
+  return [paceFromPct(pz.threshold, t.pctHigh), paceFromPct(pz.threshold, t.pctLow)]
 }
 
 function QualityContent({

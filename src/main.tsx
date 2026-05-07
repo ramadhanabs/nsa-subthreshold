@@ -13,6 +13,7 @@ import ComparisonPage from "./pages/comparison"
 import LoginPage from "./pages/login"
 import RegisterPage from "./pages/register"
 import DashboardPage from "./pages/dashboard"
+import BlockGeneratorPage from "./pages/block-generator"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -29,6 +30,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/block-generator" element={<BlockGeneratorPage />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
