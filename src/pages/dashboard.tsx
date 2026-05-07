@@ -22,6 +22,7 @@ interface TestResult {
 
 interface WellnessRecord {
   ctl?: number | null
+  atl?: number | null
   resting_hr?: number | null
   sleep_hours?: number | null
 }
@@ -57,7 +58,7 @@ export default function DashboardPage() {
   const [fetchError, setFetchError] = useState(false)
 
   // Wellness / Intervals.icu state
-  const [wellness, setWellness] = useState<{ ctl?: number; restingHR?: number; sleepHours?: number } | null>(null)
+  const [wellness, setWellness] = useState<{ ctl?: number; atl?: number; restingHR?: number; sleepHours?: number } | null>(null)
   const [intervalsConnected, setIntervalsConnected] = useState(false)
   const [intervalsAthleteId, setIntervalsAthleteId] = useState("")
   const [connectAthleteId, setConnectAthleteId] = useState("")
@@ -100,7 +101,8 @@ export default function DashboardPage() {
               ? sleepRecords.reduce((s, r) => s + (r.sleep_hours ?? 0), 0) / sleepRecords.length
               : undefined
             const latestCtl = records[0]?.ctl ?? undefined
-            setWellness({ ctl: latestCtl, restingHR: avgHR, sleepHours: avgSleep })
+            const latestAtl = records[0]?.atl ?? undefined
+            setWellness({ ctl: latestCtl, atl: latestAtl, restingHR: avgHR, sleepHours: avgSleep })
             setIntervalsConnected(true)
           }
         })
@@ -413,7 +415,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-muted rounded-lg p-2.5">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground mb-1"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
-                <div className="text-[0.65rem] text-muted-foreground">CTL</div>
+                <div className="text-[0.65rem] text-muted-foreground">CTL (Fitness)</div>
                 <div className="text-xl font-medium font-mono">
                   {wellness?.ctl != null ? Math.round(wellness.ctl) : "\u2014"}
                 </div>
@@ -436,12 +438,12 @@ export default function DashboardPage() {
                 <div className="text-[0.65rem] text-muted-foreground">avg hrs last 7d</div>
               </div>
               <div className="bg-muted rounded-lg p-2.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground mb-1"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></svg>
-                <div className="text-[0.65rem] text-muted-foreground">Phase</div>
-                <div className="text-xl font-medium font-mono">{"\u2014"}</div>
-                <div className="text-[0.65rem] text-muted-foreground">
-                  {intervalsConnected ? "current block" : "connect Intervals.icu"}
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground mb-1"><path d="m8 2 1.88 1.88" /><path d="M14.12 3.88 16 2" /><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1" /><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6" /><path d="M12 20v-9" /><path d="M6.53 9C4.6 8.8 3 7.1 3 5" /><path d="M6 13H2" /><path d="M3 21c0-2.1 1.7-3.9 3.8-4" /><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4" /><path d="M22 13h-4" /><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4" /></svg>
+                <div className="text-[0.65rem] text-muted-foreground">ATL (Fatigue)</div>
+                <div className="text-xl font-medium font-mono">
+                  {wellness?.atl != null ? Math.round(wellness.atl) : "\u2014"}
                 </div>
+                <div className="text-[0.65rem] text-muted-foreground">acute training load</div>
               </div>
             </div>
           </div>
