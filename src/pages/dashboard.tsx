@@ -21,8 +21,9 @@ interface TestResult {
 }
 
 interface WellnessRecord {
-  ctl?: number
-  restingHR?: number
+  ctl?: number | null
+  resting_hr?: number | null
+  sleep_hours?: number | null
 }
 
 function GlobeIcon() {
@@ -56,7 +57,7 @@ export default function DashboardPage() {
   const [fetchError, setFetchError] = useState(false)
 
   // Wellness / Intervals.icu state
-  const [wellness, setWellness] = useState<WellnessRecord | null>(null)
+  const [wellness, setWellness] = useState<{ ctl?: number; restingHR?: number; sleepHours?: number } | null>(null)
   const [intervalsConnected, setIntervalsConnected] = useState(false)
   const [intervalsAthleteId, setIntervalsAthleteId] = useState("")
   const [connectAthleteId, setConnectAthleteId] = useState("")
@@ -90,9 +91,16 @@ export default function DashboardPage() {
       apiFetch<WellnessRecord[]>(`/api/wellness?from=${fromStr}`)
         .then((records) => {
           if (records && records.length > 0) {
-            const avgHR = records.reduce((s, r) => s + (r.restingHR ?? 0), 0) / records.filter((r) => r.restingHR).length
-            const latestCtl = records[records.length - 1]?.ctl
-            setWellness({ ctl: latestCtl, restingHR: avgHR || undefined })
+            const hrRecords = records.filter((r) => r.resting_hr)
+            const avgHR = hrRecords.length > 0
+              ? hrRecords.reduce((s, r) => s + (r.resting_hr ?? 0), 0) / hrRecords.length
+              : undefined
+            const sleepRecords = records.filter((r) => r.sleep_hours)
+            const avgSleep = sleepRecords.length > 0
+              ? sleepRecords.reduce((s, r) => s + (r.sleep_hours ?? 0), 0) / sleepRecords.length
+              : undefined
+            const latestCtl = records[0]?.ctl ?? undefined
+            setWellness({ ctl: latestCtl, restingHR: avgHR, sleepHours: avgSleep })
             setIntervalsConnected(true)
           }
         })
@@ -418,9 +426,11 @@ export default function DashboardPage() {
                 <div className="text-[0.65rem] text-muted-foreground">avg last 7d</div>
               </div>
               <div className="bg-muted rounded-lg p-2.5">
-                <div className="text-[0.65rem] text-muted-foreground">Week streak</div>
-                <div className="text-xl font-medium font-mono">{"\u2014"}</div>
-                <div className="text-[0.65rem] text-muted-foreground">consecutive</div>
+                <div className="text-[0.65rem] text-muted-foreground">Sleep</div>
+                <div className="text-xl font-medium font-mono">
+                  {wellness?.sleepHours != null ? wellness.sleepHours.toFixed(1) : "\u2014"}
+                </div>
+                <div className="text-[0.65rem] text-muted-foreground">avg hrs last 7d</div>
               </div>
               <div className="bg-muted rounded-lg p-2.5">
                 <div className="text-[0.65rem] text-muted-foreground">Phase</div>
