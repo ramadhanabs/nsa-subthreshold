@@ -80,7 +80,7 @@ export const ActivitiesServiceLive = Layer.effect(
           let count = 0
           for (const entry of entries) {
             const intervalsId = entry.id
-            const date = entry.start_date_local
+            const date = entry.start_date_local?.slice(0, 10) ?? entry.start_date_local
             const type = entry.type ?? "Run"
             const name = entry.name ?? null
             const distanceM = entry.distance ?? null
