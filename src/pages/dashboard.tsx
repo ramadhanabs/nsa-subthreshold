@@ -412,6 +412,7 @@ export default function DashboardPage() {
             <div className="text-[13px] font-medium mb-3">Progress</div>
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-muted rounded-lg p-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground mb-1"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
                 <div className="text-[0.65rem] text-muted-foreground">CTL</div>
                 <div className="text-xl font-medium font-mono">
                   {wellness?.ctl != null ? Math.round(wellness.ctl) : "\u2014"}
@@ -419,6 +420,7 @@ export default function DashboardPage() {
                 <div className="text-[0.65rem] text-muted-foreground">chronic training load</div>
               </div>
               <div className="bg-muted rounded-lg p-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground mb-1"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
                 <div className="text-[0.65rem] text-muted-foreground">Resting HR</div>
                 <div className="text-xl font-medium font-mono">
                   {wellness?.restingHR != null ? Math.round(wellness.restingHR) : "\u2014"}
@@ -426,6 +428,7 @@ export default function DashboardPage() {
                 <div className="text-[0.65rem] text-muted-foreground">avg last 7d</div>
               </div>
               <div className="bg-muted rounded-lg p-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground mb-1"><path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v9" /></svg>
                 <div className="text-[0.65rem] text-muted-foreground">Sleep</div>
                 <div className="text-xl font-medium font-mono">
                   {wellness?.sleepHours != null ? wellness.sleepHours.toFixed(1) : "\u2014"}
@@ -433,6 +436,7 @@ export default function DashboardPage() {
                 <div className="text-[0.65rem] text-muted-foreground">avg hrs last 7d</div>
               </div>
               <div className="bg-muted rounded-lg p-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground mb-1"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></svg>
                 <div className="text-[0.65rem] text-muted-foreground">Phase</div>
                 <div className="text-xl font-medium font-mono">{"\u2014"}</div>
                 <div className="text-[0.65rem] text-muted-foreground">
