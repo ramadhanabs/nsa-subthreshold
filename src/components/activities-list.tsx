@@ -126,9 +126,12 @@ export default function ActivitiesList() {
           </div>
           {/* Data rows */}
           {activities.map((a) => (
-            <div
+            <a
               key={a.id}
-              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)] gap-x-2 text-xs py-1.5 border-b border-border/50 last:border-0"
+              href={`https://intervals.icu/activities/${a.intervals_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)] gap-x-2 text-xs py-1.5 border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors rounded-sm cursor-pointer"
             >
               <div className="truncate">{a.date}</div>
               <div className="truncate">{a.name ?? a.type}</div>
@@ -136,7 +139,7 @@ export default function ActivitiesList() {
               <div>{a.duration_secs != null ? fmtDuration(a.duration_secs) : "—"}</div>
               <div>{a.avg_pace != null ? `${fmtPace(a.avg_pace)}/km` : "—"}</div>
               <div>{a.avg_hr != null ? Math.round(a.avg_hr).toString() : "—"}</div>
-            </div>
+            </a>
           ))}
         </div>
       )}
