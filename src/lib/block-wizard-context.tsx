@@ -54,7 +54,7 @@ export function BlockWizardProvider({ children }: { children: ReactNode }) {
     try {
       setState(s => ({ ...s, error: null }))
       const result = await apiFetch<AssessmentResult>("/api/block/assess", { method: "POST" })
-      setState(s => ({ ...s, assessment: result, step: 2, error: null }))
+      setState(s => ({ ...s, assessment: result, error: null }))
     } catch (e) {
       setState(s => ({ ...s, error: (e as Error).message }))
     }
@@ -63,7 +63,7 @@ export function BlockWizardProvider({ children }: { children: ReactNode }) {
   const setStartDate = useCallback((date: string) => {
     const d = new Date(date)
     const day = d.getDay()
-    const diff = day === 0 ? -6 : 1 - day  // Sunday snaps back, others snap to Monday
+    const diff = day === 1 ? 0 : day === 0 ? 1 : 8 - day  // Snap forward to next Monday
     d.setDate(d.getDate() + diff)
     const start = d.toISOString().slice(0, 10)
     const end = new Date(d.getTime() + 27 * 86400000).toISOString().slice(0, 10)

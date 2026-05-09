@@ -235,8 +235,13 @@ export function computeReadiness(
     flags.push("CTL trend is declining")
   }
 
-  // TSB
-  const latestTsb = [...wellness].reverse().find((w) => w.tsb != null)?.tsb ?? 0
+  // TSB — prefer explicit tsb, fall back to ctl - atl
+  const latestWellness = [...wellness].reverse().find((w) => w.tsb != null || (w.ctl != null && w.atl != null))
+  const latestTsb = latestWellness?.tsb ?? (
+    latestWellness?.ctl != null && latestWellness?.atl != null
+      ? latestWellness.ctl - latestWellness.atl
+      : 0
+  )
   if (latestTsb < -20) {
     flags.push(`TSB too low: ${latestTsb.toFixed(0)} (need > -20)`)
   }

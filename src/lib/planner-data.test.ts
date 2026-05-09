@@ -173,21 +173,21 @@ describe("test workout templates", () => {
   it("has test templates with correct structure", () => {
     expect(Q_TEMPLATES.test).toHaveLength(2)
     expect(Q_TEMPLATES.test[0].id).toBe("t1")
-    expect(Q_TEMPLATES.test[0].name).toBe("5K TT")
+    expect(Q_TEMPLATES.test[0].name).toBe("5k Time Trial")
     expect(Q_TEMPLATES.test[1].id).toBe("t2")
-    expect(Q_TEMPLATES.test[1].name).toBe("20min Test")
+    expect(Q_TEMPLATES.test[1].name).toBe("20' Test")
   })
 
   it("generates workout JSON for 5K TT", () => {
     const t = Q_TEMPLATES.test[0]
     const result = toIntervalsWorkout(t, 10, 5)
-    expect(result.description).toContain("5K TT")
+    expect(result.description).toContain("5k Time Trial")
   })
 
   it("generates workout JSON for 20min Test", () => {
     const t = Q_TEMPLATES.test[1]
     const result = toIntervalsWorkout(t, 10, 5)
-    expect(result.description).toContain("20min Test")
+    expect(result.description).toContain("20' Test")
   })
 })
 

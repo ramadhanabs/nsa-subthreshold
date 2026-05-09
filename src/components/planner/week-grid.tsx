@@ -25,6 +25,7 @@ interface WeekGridProps {
   onCdChange: (day: string, v: number) => void
   onResetWuCd: (day: string) => void
   paceZones: PaceZones | null
+  hints?: string[]
 }
 
 const CHIP_TYPES: SessionType[] = ["easy", "long", "rest"]
@@ -73,6 +74,7 @@ export function WeekGrid({
   onCdChange,
   onResetWuCd,
   paceZones,
+  hints,
 }: WeekGridProps) {
   return (
     <div className="space-y-3 bg-muted/50 rounded-xl p-4">
@@ -109,6 +111,7 @@ export function WeekGrid({
             onCdChange={onCdChange}
             onResetWuCd={onResetWuCd}
             paceZones={paceZones}
+            hint={hints?.[i]}
           />
         ))}
       </div>

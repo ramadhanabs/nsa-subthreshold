@@ -1,3 +1,6 @@
+import { useEffect } from "react"
+import { useNavigate } from "react-router"
+import { useAuth } from "@/lib/auth-context"
 import { BlockWizardProvider, useBlockWizard } from "@/lib/block-wizard-context"
 import { StepIndicator } from "@/components/block/step-indicator"
 import { StepAssessment } from "@/components/block/step-assessment"
@@ -7,6 +10,17 @@ import { StepPush } from "@/components/block/step-push"
 import { StepWeeks } from "@/components/block/step-weeks"
 
 export default function BlockGeneratorPage() {
+  const { user, isLoading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate("/login?redirect=/block-generator", { replace: true })
+    }
+  }, [user, isLoading, navigate])
+
+  if (isLoading || !user) return null
+
   return (
     <BlockWizardProvider>
       <BlockGeneratorContent />
@@ -18,7 +32,7 @@ function BlockGeneratorContent() {
   const { step } = useBlockWizard()
 
   return (
-    <div className="max-w-[960px] mx-auto px-5 py-8 space-y-6">
+    <div className="max-w-[1280px] mx-auto px-5 py-8 space-y-6">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">
           NSA Block Generator

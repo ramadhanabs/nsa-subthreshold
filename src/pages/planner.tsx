@@ -8,6 +8,7 @@ import {
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
+  type Modifier,
 } from "@dnd-kit/core"
 import { Upload } from "lucide-react"
 import { getPaceZones } from "@/lib/calculator"
@@ -35,6 +36,16 @@ import {
   type QTemplate,
   type SessionType,
 } from "@/lib/planner-data"
+
+const snapCenterToCursor: Modifier = ({ activatorEvent, draggingNodeRect, transform }) => {
+  if (activatorEvent && draggingNodeRect) {
+    const evt = activatorEvent as PointerEvent
+    const offsetX = evt.clientX - draggingNodeRect.left - draggingNodeRect.width / 2
+    const offsetY = evt.clientY - draggingNodeRect.top - draggingNodeRect.height / 2
+    return { ...transform, x: transform.x + offsetX, y: transform.y + offsetY }
+  }
+  return transform
+}
 
 function getNextMonday() {
   const d = new Date()
@@ -425,6 +436,7 @@ export default function PlannerPage() {
               onDefaultWuChange={setDefaultWu}
               onDefaultCdChange={setDefaultCd}
               paceZones={paceZones}
+              isDragging={!!activeId}
             />
           </div>
         </div>
@@ -471,7 +483,7 @@ export default function PlannerPage() {
         </div>
       </div>
 
-      <DragOverlay>{renderDragOverlay()}</DragOverlay>
+      <DragOverlay modifiers={[snapCenterToCursor]}>{renderDragOverlay()}</DragOverlay>
     </DndContext>
   )
 }

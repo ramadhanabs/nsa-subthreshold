@@ -1,6 +1,6 @@
 import { useDraggable } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
-import { Settings, PersonStanding } from "lucide-react"
+import { Settings, PersonStanding, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,7 +10,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Q_TEMPLATES, totalSessionMin, type QTemplate } from "@/lib/planner-data"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Q_TEMPLATES, totalSessionMin, estimateQualityLoad, type QTemplate } from "@/lib/planner-data"
 import { fmtPace, type PaceZones, paceFromPct } from "@/lib/calculator"
 
 interface QualityPaletteProps {
@@ -21,6 +22,7 @@ interface QualityPaletteProps {
   onDefaultWuChange: (v: number) => void
   onDefaultCdChange: (v: number) => void
   paceZones: PaceZones | null
+  isDragging?: boolean
 }
 
 function paceRangeForTemplate(t: QTemplate, pz: PaceZones): [number, number] {
@@ -34,6 +36,8 @@ const CATEGORIES = [
   { key: "long", label: "Long" },
 ] as const
 
+const TEST_CATEGORY = { key: "test", label: "Test" } as const
+
 export function QualityPalette({
   catFilter,
   onCatFilterChange,
@@ -42,14 +46,15 @@ export function QualityPalette({
   onDefaultWuChange,
   onDefaultCdChange,
   paceZones,
+  isDragging,
 }: QualityPaletteProps) {
   const templates =
     catFilter === "all"
-      ? Object.values(Q_TEMPLATES).flat()
+      ? Object.entries(Q_TEMPLATES).filter(([k]) => k !== "test").flatMap(([, v]) => v)
       : (Q_TEMPLATES[catFilter] ?? [])
 
   return (
-    <div className="space-y-3 max-h-[650px] flex flex-col bg-muted/50 rounded-xl p-4">
+    <div className="space-y-3 max-h-[650px] lg:max-h-[990px] flex flex-col bg-muted/50 rounded-xl p-4">
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium flex items-center gap-1.5">
           <PersonStanding size={14} className="text-muted-foreground" />
@@ -97,7 +102,7 @@ export function QualityPalette({
       </div>
 
       {/* Category filter buttons */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
         {CATEGORIES.map((cat) => (
           <Button
             key={cat.key}
@@ -108,10 +113,19 @@ export function QualityPalette({
             {cat.label}
           </Button>
         ))}
+        <div className="w-px h-5 bg-border" />
+        <Button
+          size="sm"
+          variant={catFilter === TEST_CATEGORY.key ? "default" : "outline"}
+          onClick={() => onCatFilterChange(TEST_CATEGORY.key)}
+          className={catFilter === TEST_CATEGORY.key ? "" : "border-dashed"}
+        >
+          {TEST_CATEGORY.label}
+        </Button>
       </div>
 
       {/* Draggable template cards */}
-      <div className="grid grid-cols-2 gap-2 overflow-y-auto min-h-0">
+      <div className={`grid grid-cols-2 gap-2 min-h-0 ${isDragging ? "overflow-hidden" : "overflow-y-auto"}`}>
         {templates.map((t) => (
           <DraggableTemplateCard
             key={t.id}
@@ -214,7 +228,7 @@ function DraggableTemplateCard({
 
               {/* Session label */}
               <div className="text-xs font-medium text-foreground">
-                Sub-Threshold
+                {t.id.startsWith("t") ? "Test" : "Sub-Threshold"}
               </div>
               <div className="text-xs text-muted-foreground mb-1.5">
                 {t.name.includes("×") ? t.name.replace("×", " × ") : t.name}
@@ -260,11 +274,25 @@ function DraggableTemplateCard({
                   const totalKm = workKm + wuCdKm
                   return (
                     <div className="flex justify-between pt-0.5 border-t border-border/50">
-                      <span>Est. distance</span>
+                      <span className="flex items-center gap-0.5">
+                        Est. distance
+                        <Tooltip>
+                          <TooltipTrigger className="cursor-help" onPointerDown={(e) => e.stopPropagation()}>
+                            <Info className="w-2.5 h-2.5 text-muted-foreground/50" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[220px] text-xs leading-relaxed">
+                            WU/CD at easy pace ({fmtPace(paceZones.easyMax)}/km), main set at avg sub-threshold pace ({fmtPace(lo)}–{fmtPace(hi)}/km).
+                          </TooltipContent>
+                        </Tooltip>
+                      </span>
                       <span className="font-mono">~{totalKm.toFixed(1)}km</span>
                     </div>
                   )
                 })()}
+                <div className="flex justify-between pt-0.5 border-t border-border/50">
+                  <span>Est. load</span>
+                  <span className="font-mono">{estimateQualityLoad(t, defaultWu, defaultCd)}</span>
+                </div>
               </div>
             </div>
   )

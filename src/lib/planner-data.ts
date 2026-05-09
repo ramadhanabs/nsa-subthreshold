@@ -52,8 +52,8 @@ export const Q_TEMPLATES: Record<string, QTemplate[]> = {
     { id: "l7", name: "3×15min", reps: 3, dur: 15, rest: 120, vol: 45, pctLow: 95, pctHigh: 97 },
   ],
   test: [
-    { id: "t1", name: "5K TT", reps: 1, dur: 20, rest: 0, vol: 20, pctLow: 105, pctHigh: 110 },
-    { id: "t2", name: "20min Test", reps: 1, dur: 20, rest: 0, vol: 20, pctLow: 100, pctHigh: 105 },
+    { id: "t1", name: "5k Time Trial", reps: 1, dur: 20, rest: 0, vol: 20, pctLow: 105, pctHigh: 110 },
+    { id: "t2", name: "20' Test", reps: 1, dur: 20, rest: 0, vol: 20, pctLow: 103, pctHigh: 110 },
   ],
 }
 

@@ -1,6 +1,8 @@
 import { useDroppable, useDraggable } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
+import { Info } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { totalSessionMin, type DaySlotData, type QTemplate } from "@/lib/planner-data"
 import { fmtPace, paceFromPct, type PaceZones } from "@/lib/calculator"
 
@@ -26,6 +28,8 @@ interface DaySlotProps {
   onResetWuCd: (day: string) => void
   // Pace
   paceZones: PaceZones | null
+  // Optional hint for empty slots (e.g. "E", "Q", "LR")
+  hint?: string
 }
 
 const NUM_INPUT_CLS =
@@ -88,13 +92,13 @@ function QualityContent({
       </div>
 
       {/* Session label */}
-      <div className="text-[0.6rem] font-medium">Sub-Threshold</div>
-      <div className="text-[0.6rem] text-muted-foreground">
+      <div className="text-xs font-medium">{template.id.startsWith("t") ? "Test" : "Sub-Threshold"}</div>
+      <div className="text-xs text-muted-foreground">
         {template.name.includes("×") ? template.name.replace("×", " × ") : template.name}
       </div>
 
       {/* Breakdown */}
-      <div className="text-[0.55rem] text-muted-foreground space-y-0.5 pt-0.5">
+      <div className="text-[0.7rem] text-muted-foreground space-y-0.5 pt-1">
         <div className="flex justify-between">
           <span>Warmup</span>
           <span className="font-mono">{wu}min</span>
@@ -125,7 +129,17 @@ function QualityContent({
         </div>
         {estKm && (
           <div className="flex justify-between">
-            <span>Est. distance</span>
+            <span className="flex items-center gap-0.5">
+              Est. distance
+              <Tooltip>
+                <TooltipTrigger className="cursor-help" onPointerDown={(e) => e.stopPropagation()}>
+                  <Info className="w-2.5 h-2.5 text-muted-foreground/50" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[220px] text-xs leading-relaxed">
+                  Warmup + cooldown at easy pace ({pace ? fmtPace(paceZones!.easyMax) : "—"}/km), main set at avg sub-threshold pace ({pace ? `${fmtPace(pace[0])}–${fmtPace(pace[1])}` : "—"}/km).
+                </TooltipContent>
+              </Tooltip>
+            </span>
             <span className="font-mono">~{estKm.toFixed(1)}km</span>
           </div>
         )}
@@ -137,7 +151,7 @@ function QualityContent({
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onResetWuCd(day) }}
-          className="text-[0.55rem] text-muted-foreground underline hover:text-foreground"
+          className="text-[0.65rem] text-muted-foreground underline hover:text-foreground"
         >
           reset WU/CD to default
         </button>
@@ -146,7 +160,7 @@ function QualityContent({
       {/* Inline WU/CD inputs */}
       <div className="grid grid-cols-2 gap-1.5 pt-1">
         <div>
-          <label className="mb-0.5 block text-[0.5rem] uppercase tracking-wider text-muted-foreground">WU</label>
+          <label className="mb-0.5 block text-[0.6rem] uppercase tracking-wider text-muted-foreground">WU</label>
           <Input
             type="number"
             min={0}
@@ -159,7 +173,7 @@ function QualityContent({
           />
         </div>
         <div>
-          <label className="mb-0.5 block text-[0.5rem] uppercase tracking-wider text-muted-foreground">CD</label>
+          <label className="mb-0.5 block text-[0.6rem] uppercase tracking-wider text-muted-foreground">CD</label>
           <Input
             type="number"
             min={0}
@@ -201,7 +215,7 @@ function EasyContent({
         value={easyMin}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
-        onChange={(e) => onEasyMinChange(day, Number(e.target.value))}
+        onChange={(e) => onEasyMinChange(day, Math.min(90, Math.max(0, Number(e.target.value) || 0)))}
         className={NUM_INPUT_CLS}
       />
       <p className="mt-1 text-center text-[10px] opacity-50">min</p>
@@ -239,12 +253,12 @@ function LongContent({
       </p>
       <Input
         type="number"
-        min={45}
-        max={180}
+        min={60}
+        max={240}
         value={longMin}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
-        onChange={(e) => onLongMinChange(Number(e.target.value))}
+        onChange={(e) => onLongMinChange(Math.min(240, Math.max(0, Number(e.target.value) || 0)))}
         className={NUM_INPUT_CLS}
       />
       <p className="mt-1 text-center text-[10px] opacity-50">min</p>
@@ -260,9 +274,27 @@ function RestContent() {
   )
 }
 
-function EmptyContent() {
+function EmptyContent({ hint }: { hint?: string }) {
+  const HINT_STYLES: Record<string, string> = {
+    E: "bg-blue-500/10 text-blue-500",
+    Q: "bg-amber-500/10 text-amber-500",
+    LR: "bg-blue-500/10 text-blue-500",
+    R: "bg-muted text-muted-foreground",
+  }
+  const HINT_LABELS: Record<string, string> = {
+    E: "Easy",
+    Q: "Quality",
+    LR: "Long Run",
+    R: "Rest",
+  }
+
   return (
-    <div className="flex flex-1 items-center justify-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-1.5">
+      {hint && (
+        <span className={`text-[0.6rem] font-mono font-medium px-1.5 py-0.5 rounded ${HINT_STYLES[hint] ?? "text-muted-foreground"}`}>
+          {HINT_LABELS[hint] ?? hint}
+        </span>
+      )}
       <p className="text-center text-xs opacity-40">
         Drop here
       </p>
@@ -288,6 +320,7 @@ export function DaySlot({
   onCdChange,
   onResetWuCd,
   paceZones,
+  hint,
 }: DaySlotProps) {
   const { day, type, template } = slot
 
@@ -390,7 +423,7 @@ export function DaySlot({
         <LongContent longMin={longMin} onLongMinChange={onLongMinChange} />
       )}
       {type === "rest" && <RestContent />}
-      {!type && <EmptyContent />}
+      {!type && <EmptyContent hint={hint} />}
     </div>
   )
 }

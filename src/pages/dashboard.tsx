@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context"
 import { apiFetch } from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { get5kPace, getHR, getPaceZones, fmtPace, type InputMode } from "@/lib/calculator"
+import { Sparkles, ArrowRight } from "lucide-react"
 import TestTracker from "@/components/test-tracker"
 import ActivitiesList from "@/components/activities-list"
 // import BudgetCalculator from "@/components/budget-calculator"
@@ -182,6 +183,28 @@ export default function DashboardPage() {
 
   return (
     <main className="max-w-[1100px] mx-auto px-5 py-8 pb-12 space-y-6">
+      {/* Block Generator Banner */}
+      <Link
+        to="/block-generator"
+        className="group relative block overflow-hidden rounded-xl border border-border bg-gradient-to-r from-emerald-500/10 via-transparent to-amber-500/10 p-5 transition-all hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/5"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-transform duration-300 group-hover:scale-110">
+            <Sparkles className="h-5 w-5 animate-pulse" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold tracking-tight">
+              NSA Block Generator
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Create a 4-week training block — 3 build weeks with progressive sub-threshold volume + 1 deload/test week
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
+        </div>
+      </Link>
+
       {/* Two-column grid: left = user data, right = Intervals.icu data */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── Left column: User profile, parameters, zones, tests ── */}
