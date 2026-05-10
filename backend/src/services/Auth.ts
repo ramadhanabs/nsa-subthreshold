@@ -3,9 +3,11 @@ import { DatabaseService } from "./Database"
 import { EmailAlreadyRegistered, InvalidCredentials, InvalidToken, InvitationExpired, NotFoundError, PasswordMismatch, ResetTokenExpired } from "./Errors"
 import { SignJWT, jwtVerify } from "jose"
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "nsa-dev-secret-change-in-production"
-)
+const jwtSecretRaw = process.env.JWT_SECRET
+if (!jwtSecretRaw) {
+  throw new Error("JWT_SECRET environment variable is required")
+}
+const JWT_SECRET = new TextEncoder().encode(jwtSecretRaw)
 
 export interface User {
   id: string
@@ -23,7 +25,7 @@ const createToken = (id: string, email: string) =>
     try: () =>
       new SignJWT({ id, email })
         .setProtectedHeader({ alg: "HS256" })
-        .setExpirationTime("30d")
+        .setExpirationTime("7d")
         .sign(JWT_SECRET),
     catch: (e) => new Error(`Failed to create token: ${e}`),
   })
@@ -196,5 +198,4 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
         }),
     }
   }),
-  dependencies: [DatabaseService.Default],
 }) {}

@@ -39,3 +39,5 @@ export class NotAdmin extends Data.TaggedError("NotAdmin")<{}> {}
 export class PasswordMismatch extends Data.TaggedError("PasswordMismatch")<{}> {}
 
 export class ResetTokenExpired extends Data.TaggedError("ResetTokenExpired")<{}> {}
+
+export class RateLimitExceeded extends Data.TaggedError("RateLimitExceeded")<{}> {}

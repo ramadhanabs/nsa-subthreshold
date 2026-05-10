@@ -397,12 +397,13 @@ const withCors = HttpRouter.use(router, (handler) =>
             case "NotAdmin": return jsonError("Admin access required", 403)
             case "PasswordMismatch": return jsonError("Current password is incorrect", 400)
             case "ResetTokenExpired": return jsonError("Reset link expired or invalid", 400)
+            case "RateLimitExceeded": return jsonError("Too many requests, try again later", 429)
           }
         }
-        const message = err instanceof Error ? err.message : String(err)
+        const detail = err instanceof Error ? err.message : String(err)
         return Effect.gen(function* () {
-          yield* Effect.logError("Unhandled error").pipe(Effect.annotateLogs("error", message))
-          return yield* jsonError(message, 500)
+          yield* Effect.logError("Unhandled error").pipe(Effect.annotateLogs("error", detail))
+          return yield* jsonError("Internal server error", 500)
         })
       }),
     )
