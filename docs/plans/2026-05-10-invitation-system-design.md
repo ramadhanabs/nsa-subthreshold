@@ -59,8 +59,8 @@ UPDATE users SET is_admin = 1 WHERE email = '<admin_email>';
 ```
 SMTP_HOST=smtp.sumopod.com
 SMTP_PORT=465
-SMTP_USER=cmozdrhdgapaan408yjbbvt6g
-SMTP_PASS=kVQTZjA3e1tGoHMjdJxBVXC6shbYvxNT
+SMTP_USER=<your_smtp_user>
+SMTP_PASS=<your_smtp_pass>
 SMTP_FROM=noreply@bagus.icu
 ```
 
