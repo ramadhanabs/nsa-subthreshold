@@ -107,6 +107,38 @@ const authRoutes = HttpRouter.empty.pipe(
     const user = yield* extractUser
     return yield* json(user)
   })),
+
+  HttpRouter.post("/api/auth/change-password", Effect.gen(function* () {
+    const user = yield* extractUser
+    const body = yield* readJson
+    if (!body.currentPassword || !body.newPassword) return yield* badRequest("currentPassword and newPassword are required")
+    if (body.newPassword.length < 8) return yield* badRequest("Password must be at least 8 characters")
+    const auth = yield* AuthService
+    const result = yield* auth.changePassword(user.id, body.currentPassword, body.newPassword)
+    return yield* json(result)
+  })),
+
+  HttpRouter.post("/api/auth/forgot-password", Effect.gen(function* () {
+    const body = yield* readJson
+    if (!body.email) return yield* badRequest("email is required")
+    const auth = yield* AuthService
+    const token = yield* auth.createResetToken(body.email)
+    if (token) {
+      const emailSvc = yield* EmailService
+      yield* emailSvc.sendResetPassword(body.email, token).pipe(Effect.catchAll(() => Effect.void))
+    }
+    // Always return success to not reveal if email exists
+    return yield* json({ ok: true })
+  })),
+
+  HttpRouter.post("/api/auth/reset-password", Effect.gen(function* () {
+    const body = yield* readJson
+    if (!body.token || !body.password) return yield* badRequest("token and password are required")
+    if (body.password.length < 8) return yield* badRequest("Password must be at least 8 characters")
+    const auth = yield* AuthService
+    const result = yield* auth.resetPassword(body.token, body.password)
+    return yield* json(result)
+  })),
 )
 
 // Tests
@@ -363,6 +395,8 @@ const withCors = HttpRouter.use(router, (handler) =>
             case "InvitationRequired": return jsonError("Valid invitation required", 400)
             case "InvitationExpired": return jsonError("Invitation expired or invalid", 400)
             case "NotAdmin": return jsonError("Admin access required", 403)
+            case "PasswordMismatch": return jsonError("Current password is incorrect", 400)
+            case "ResetTokenExpired": return jsonError("Reset link expired or invalid", 400)
           }
         }
         const message = err instanceof Error ? err.message : String(err)

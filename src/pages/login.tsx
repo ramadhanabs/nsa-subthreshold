@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react"
-import { useNavigate, useSearchParams } from "react-router"
+import { Link, useNavigate, useSearchParams } from "react-router"
 import { Eye, EyeOff } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Input } from "@/components/ui/input"
@@ -75,6 +75,12 @@ export default function LoginPage() {
           {submitting ? "Signing in\u2026" : "Sign in"}
         </Button>
       </form>
+
+      <p className="mt-4 text-center text-sm text-muted-foreground">
+        <Link to="/forgot-password" className="hover:text-foreground underline">
+          Forgot password?
+        </Link>
+      </p>
 
       </div>
     </div>

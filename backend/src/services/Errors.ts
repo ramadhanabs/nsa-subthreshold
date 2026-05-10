@@ -35,3 +35,7 @@ export class InvitationRequired extends Data.TaggedError("InvitationRequired")<{
 export class InvitationExpired extends Data.TaggedError("InvitationExpired")<{}> {}
 
 export class NotAdmin extends Data.TaggedError("NotAdmin")<{}> {}
+
+export class PasswordMismatch extends Data.TaggedError("PasswordMismatch")<{}> {}
+
+export class ResetTokenExpired extends Data.TaggedError("ResetTokenExpired")<{}> {}

@@ -10,6 +10,7 @@ import ActivitiesList from "@/components/activities-list"
 // import BudgetCalculator from "@/components/budget-calculator"
 import TrainingSummary from "@/components/training-summary"
 import { AdminInvite } from "@/components/admin-invite"
+import { ChangePassword } from "@/components/change-password"
 
 interface TestResult {
   id: string
@@ -338,6 +339,8 @@ export default function DashboardPage() {
 
           {/* Admin: Invite users */}
           {isAdmin && <AdminInvite />}
+
+          <ChangePassword />
         </div>
 
         {/* ── Right column: Intervals.icu data ── */}

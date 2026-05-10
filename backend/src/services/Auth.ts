@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { DatabaseService } from "./Database"
-import { EmailAlreadyRegistered, InvalidCredentials, InvalidToken, InvitationExpired } from "./Errors"
+import { EmailAlreadyRegistered, InvalidCredentials, InvalidToken, InvitationExpired, NotFoundError, PasswordMismatch, ResetTokenExpired } from "./Errors"
 import { SignJWT, jwtVerify } from "jose"
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -47,6 +47,27 @@ const verifyInvitationToken = (token: string) =>
       return payload.email
     },
     catch: () => new InvitationExpired(),
+  })
+
+const createResetToken = (email: string) =>
+  Effect.tryPromise({
+    try: () =>
+      new SignJWT({ email, type: "reset" })
+        .setProtectedHeader({ alg: "HS256" })
+        .setExpirationTime("1h")
+        .sign(JWT_SECRET),
+    catch: (e) => new Error(`Failed to create reset token: ${e}`),
+  })
+
+const verifyResetToken = (token: string) =>
+  Effect.tryPromise({
+    try: async () => {
+      const result = await jwtVerify(token, JWT_SECRET)
+      const payload = result.payload as { email: string; type: string }
+      if (payload.type !== "reset") throw new Error("Not a reset token")
+      return payload.email
+    },
+    catch: () => new ResetTokenExpired(),
   })
 
 export class AuthService extends Effect.Service<AuthService>()("AuthService", {
@@ -124,6 +145,54 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
             [userId]
           )
           return user?.is_admin === 1
+        }),
+
+      changePassword: (userId: string, currentPassword: string, newPassword: string) =>
+        Effect.gen(function* () {
+          const user = yield* db.get<User>(
+            "SELECT * FROM users WHERE id = ?",
+            [userId]
+          )
+          if (!user) return yield* new NotFoundError({ entity: "user", id: userId })
+          const valid = yield* Effect.tryPromise({
+            try: () => Bun.password.verify(currentPassword, user.password_hash),
+            catch: (e) => new Error(`Failed to verify password: ${e}`),
+          })
+          if (!valid) return yield* new PasswordMismatch()
+          const hash = yield* Effect.tryPromise({
+            try: () => Bun.password.hash(newPassword),
+            catch: (e) => new Error(`Failed to hash password: ${e}`),
+          })
+          yield* db.run(
+            "UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?",
+            [hash, userId]
+          )
+          return { ok: true }
+        }),
+
+      createResetToken: (email: string) =>
+        Effect.gen(function* () {
+          const user = yield* db.get<User>(
+            "SELECT * FROM users WHERE email = ?",
+            [email]
+          )
+          if (!user) return null // Don't reveal if email exists
+          const token = yield* createResetToken(email)
+          return token
+        }),
+
+      resetPassword: (token: string, newPassword: string) =>
+        Effect.gen(function* () {
+          const email = yield* verifyResetToken(token)
+          const hash = yield* Effect.tryPromise({
+            try: () => Bun.password.hash(newPassword),
+            catch: (e) => new Error(`Failed to hash password: ${e}`),
+          })
+          yield* db.run(
+            "UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE email = ?",
+            [hash, email]
+          )
+          return { ok: true }
         }),
     }
   }),

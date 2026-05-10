@@ -15,6 +15,8 @@ import RegisterPage from "./pages/register"
 
 import DashboardPage from "./pages/dashboard"
 import BlockGeneratorPage from "./pages/block-generator"
+import ForgotPasswordPage from "./pages/forgot-password"
+import ResetPasswordPage from "./pages/reset-password"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -31,6 +33,8 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
 
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/block-generator" element={<BlockGeneratorPage />} />
           </Routes>
