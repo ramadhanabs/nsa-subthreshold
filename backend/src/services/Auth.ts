@@ -1,5 +1,6 @@
-import { Effect, Context, Layer } from "effect"
+import { Effect } from "effect"
 import { DatabaseService } from "./Database"
+import { EmailAlreadyRegistered, InvalidCredentials, InvalidToken } from "./Errors"
 import { SignJWT, jwtVerify } from "jose"
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -16,15 +17,6 @@ export interface User {
   updated_at: string
 }
 
-export class AuthService extends Context.Tag("AuthService")<
-  AuthService,
-  {
-    readonly register: (email: string, password: string) => Effect.Effect<{ id: string; email: string; token: string }, Error>
-    readonly login: (email: string, password: string) => Effect.Effect<{ id: string; email: string; token: string }, Error>
-    readonly verify: (token: string) => Effect.Effect<{ id: string; email: string }, Error>
-  }
->() {}
-
 const createToken = (id: string, email: string) =>
   Effect.tryPromise({
     try: () =>
@@ -35,11 +27,9 @@ const createToken = (id: string, email: string) =>
     catch: (e) => new Error(`Failed to create token: ${e}`),
   })
 
-export const AuthServiceLive = Layer.effect(
-  AuthService,
-  Effect.gen(function* () {
+export class AuthService extends Effect.Service<AuthService>()("AuthService", {
+  effect: Effect.gen(function* () {
     const db = yield* DatabaseService
-
     return {
       register: (email: string, password: string) =>
         Effect.gen(function* () {
@@ -48,7 +38,7 @@ export const AuthServiceLive = Layer.effect(
             [email]
           )
           if (existing) {
-            return yield* Effect.fail(new Error("Email already registered"))
+            return yield* new EmailAlreadyRegistered({ email })
           }
 
           const id = crypto.randomUUID()
@@ -73,7 +63,7 @@ export const AuthServiceLive = Layer.effect(
             [email]
           )
           if (!user) {
-            return yield* Effect.fail(new Error("Invalid email or password"))
+            return yield* new InvalidCredentials()
           }
 
           const valid = yield* Effect.tryPromise({
@@ -81,7 +71,7 @@ export const AuthServiceLive = Layer.effect(
             catch: (e) => new Error(`Failed to verify password: ${e}`),
           })
           if (!valid) {
-            return yield* Effect.fail(new Error("Invalid email or password"))
+            return yield* new InvalidCredentials()
           }
 
           const token = yield* createToken(user.id, user.email)
@@ -92,11 +82,12 @@ export const AuthServiceLive = Layer.effect(
         Effect.gen(function* () {
           const result = yield* Effect.tryPromise({
             try: () => jwtVerify(token, JWT_SECRET),
-            catch: (e) => new Error(`Invalid token: ${e}`),
+            catch: (e) => new InvalidToken({ reason: String(e) }),
           })
           const payload = result.payload as { id: string; email: string }
           return { id: payload.id, email: payload.email }
         }),
     }
-  })
-)
+  }),
+  dependencies: [DatabaseService.Default],
+}) {}

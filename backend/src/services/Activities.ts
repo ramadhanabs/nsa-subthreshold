@@ -1,5 +1,6 @@
-import { Effect, Context, Layer } from "effect"
+import { Effect } from "effect"
 import { DatabaseService } from "./Database"
+import { IntervalsNotConnected, IntervalsApiError } from "./Errors"
 
 interface User {
   id: string
@@ -34,17 +35,8 @@ export interface ActivityRecord {
   synced_at: string
 }
 
-export class ActivitiesService extends Context.Tag("ActivitiesService")<
-  ActivitiesService,
-  {
-    readonly sync: (userId: string, from: string, to: string) => Effect.Effect<number, Error>
-    readonly list: (userId: string, from?: string, to?: string) => Effect.Effect<ActivityRecord[]>
-  }
->() {}
-
-export const ActivitiesServiceLive = Layer.effect(
-  ActivitiesService,
-  Effect.gen(function* () {
+export class ActivitiesService extends Effect.Service<ActivitiesService>()("ActivitiesService", {
+  effect: Effect.gen(function* () {
     const db = yield* DatabaseService
 
     return {
@@ -55,7 +47,7 @@ export const ActivitiesServiceLive = Layer.effect(
             [userId]
           )
           if (!user || !user.intervals_icu_athlete_id || !user.intervals_icu_api_key) {
-            return yield* Effect.fail(new Error("Intervals.icu not connected. Call /api/intervals/connect first."))
+            return yield* new IntervalsNotConnected()
           }
 
           const athleteId = user.intervals_icu_athlete_id
@@ -70,11 +62,14 @@ export const ActivitiesServiceLive = Layer.effect(
                 headers: { Authorization: `Basic ${basicAuth}` },
               })
               if (!resp.ok) {
-                throw new Error(`Intervals.icu API error: ${resp.status} ${resp.statusText}`)
+                throw { status: resp.status, message: `${resp.status} ${resp.statusText}` }
               }
               return resp.json() as Promise<IntervalsActivity[]>
             },
-            catch: (e) => new Error(`Failed to fetch activities: ${e}`),
+            catch: (e: any) =>
+              e?.status
+                ? new IntervalsApiError({ status: e.status, message: e.message })
+                : new IntervalsApiError({ status: 0, message: `Failed to fetch activities: ${e}` }),
           })
 
           let count = 0
@@ -120,5 +115,6 @@ export const ActivitiesServiceLive = Layer.effect(
         return db.all<ActivityRecord>(sql, params)
       },
     }
-  })
-)
+  }),
+  dependencies: [DatabaseService.Default],
+}) {}

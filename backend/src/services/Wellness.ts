@@ -1,4 +1,4 @@
-import { Effect, Context, Layer } from "effect"
+import { Effect } from "effect"
 import { DatabaseService } from "./Database"
 
 export interface WellnessRecord {
@@ -16,16 +16,8 @@ export interface WellnessRecord {
   synced_at: string
 }
 
-export class WellnessService extends Context.Tag("WellnessService")<
-  WellnessService,
-  {
-    readonly list: (userId: string, from?: string, to?: string) => Effect.Effect<WellnessRecord[]>
-  }
->() {}
-
-export const WellnessServiceLive = Layer.effect(
-  WellnessService,
-  Effect.gen(function* () {
+export class WellnessService extends Effect.Service<WellnessService>()("WellnessService", {
+  effect: Effect.gen(function* () {
     const db = yield* DatabaseService
 
     return {
@@ -47,5 +39,6 @@ export const WellnessServiceLive = Layer.effect(
         return db.all<WellnessRecord>(sql, params)
       },
     }
-  })
-)
+  }),
+  dependencies: [DatabaseService.Default],
+}) {}

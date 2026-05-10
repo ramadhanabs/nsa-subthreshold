@@ -1,5 +1,6 @@
-import { Effect, Context, Layer } from "effect"
+import { Effect } from "effect"
 import { DatabaseService } from "./Database"
+import { IntervalsNotConnected, IntervalsApiError } from "./Errors"
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -289,16 +290,8 @@ export function computeReadiness(
 
 // ── AssessmentService (handles API calls) ──────────────────────────────
 
-export class AssessmentService extends Context.Tag("AssessmentService")<
-  AssessmentService,
-  {
-    readonly assess: (userId: string) => Effect.Effect<AssessmentResult, Error>
-  }
->() {}
-
-export const AssessmentServiceLive = Layer.effect(
-  AssessmentService,
-  Effect.gen(function* () {
+export class AssessmentService extends Effect.Service<AssessmentService>()("AssessmentService", {
+  effect: Effect.gen(function* () {
     const db = yield* DatabaseService
 
     return {
@@ -309,9 +302,7 @@ export const AssessmentServiceLive = Layer.effect(
             [userId]
           )
           if (!user || !user.intervals_icu_athlete_id || !user.intervals_icu_api_key) {
-            return yield* Effect.fail(
-              new Error("Intervals.icu not connected. Call /api/intervals/connect first.")
-            )
+            return yield* new IntervalsNotConnected()
           }
 
           const athleteId = user.intervals_icu_athlete_id
@@ -339,11 +330,14 @@ export const AssessmentServiceLive = Layer.effect(
                 headers: { Authorization: `Basic ${basicAuth}` },
               })
               if (!resp.ok) {
-                throw new Error(`Intervals.icu API error: ${resp.status} ${resp.statusText}`)
+                throw { status: resp.status, message: `${resp.status} ${resp.statusText}` }
               }
               return resp.json() as Promise<IntervalsActivity[]>
             },
-            catch: (e) => new Error(`Failed to fetch activities: ${e}`),
+            catch: (e: any) =>
+              e?.status
+                ? new IntervalsApiError({ status: e.status, message: e.message })
+                : new IntervalsApiError({ status: 0, message: `Failed to fetch activities: ${e}` }),
           })
 
           // Fetch wellness
@@ -354,11 +348,14 @@ export const AssessmentServiceLive = Layer.effect(
                 headers: { Authorization: `Basic ${basicAuth}` },
               })
               if (!resp.ok) {
-                throw new Error(`Intervals.icu API error: ${resp.status} ${resp.statusText}`)
+                throw { status: resp.status, message: `${resp.status} ${resp.statusText}` }
               }
               return resp.json() as Promise<IntervalsWellnessEntry[]>
             },
-            catch: (e) => new Error(`Failed to fetch wellness: ${e}`),
+            catch: (e: any) =>
+              e?.status
+                ? new IntervalsApiError({ status: e.status, message: e.message })
+                : new IntervalsApiError({ status: 0, message: `Failed to fetch wellness: ${e}` }),
           })
 
           // Map to expected shapes
@@ -378,5 +375,6 @@ export const AssessmentServiceLive = Layer.effect(
           return computeReadiness(activities, wellness)
         }),
     }
-  })
-)
+  }),
+  dependencies: [DatabaseService.Default],
+}) {}

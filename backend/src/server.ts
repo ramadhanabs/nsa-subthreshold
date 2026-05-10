@@ -1,4 +1,10 @@
-import { Effect } from "effect"
+import { Effect, Data } from "effect"
+import {
+  HttpRouter,
+  HttpServer,
+  HttpServerRequest,
+  HttpServerResponse,
+} from "@effect/platform"
 import { AuthService } from "./services/Auth"
 import { TestResultsService } from "./services/TestResults"
 import { PlannerService } from "./services/Planner"
@@ -8,6 +14,19 @@ import { ActivitiesService } from "./services/Activities"
 import { WorkoutExportService } from "./services/WorkoutExport"
 import { BlockService } from "./services/Block"
 import { AssessmentService } from "./services/Assessment"
+
+// ── HTTP Error ────────────────────────────────────────────────────────
+
+class HttpError extends Data.TaggedError("HttpError")<{
+  status: number
+  message: string
+}> {}
+
+const badRequest = (message: string) => new HttpError({ status: 400, message })
+const unauthorized = (message: string) => new HttpError({ status: 401, message })
+const notFound = () => new HttpError({ status: 404, message: "Not found" })
+
+// ── CORS ──────────────────────────────────────────────────────────────
 
 const ALLOWED_ORIGINS = [
   "https://subthreshold.bagus.icu",
@@ -25,316 +44,314 @@ const corsHeaders = (origin: string | null): Record<string, string> => {
   return headers
 }
 
-const jsonResponse = (body: unknown, origin: string | null, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-  })
+// ── Auth middleware ───────────────────────────────────────────────────
 
-const errorResponse = (message: string, status: number, origin: string | null) =>
-  jsonResponse({ error: message }, origin, status)
-
-const requireAuth = async (req: Request, auth: Effect.Effect.Success<typeof AuthService>, origin: string | null): Promise<{ error: Response } | { user: { id: string; email: string } }> => {
-  const authHeader = req.headers.get("Authorization")
+const extractUser = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const authHeader = req.headers["authorization"]
   if (!authHeader?.startsWith("Bearer ")) {
-    return { error: errorResponse("Missing or invalid Authorization header", 401, origin) }
+    return yield* unauthorized("Missing or invalid Authorization header")
   }
   const token = authHeader.slice(7)
-  const user = await Effect.runPromise(auth.verify(token))
-  return { user }
-}
-
-export const startServer = Effect.gen(function* () {
   const auth = yield* AuthService
-  const tests = yield* TestResultsService
-  const planner = yield* PlannerService
-  const intervals = yield* IntervalsService
-  const wellness = yield* WellnessService
-  const activities = yield* ActivitiesService
-  const workoutExport = yield* WorkoutExportService
-  const blocks = yield* BlockService
-  const assessment = yield* AssessmentService
-
-  const port = Number(process.env.PORT) || 3002
-
-  const server = Bun.serve({
-    port,
-    fetch: async (req): Promise<Response> => {
-      const url = new URL(req.url)
-      const { pathname } = url
-      const origin = req.headers.get("Origin")
-
-      // Handle CORS preflight
-      if (req.method === "OPTIONS") {
-        return new Response(null, { status: 204, headers: corsHeaders(origin) })
-      }
-
-      try {
-        // POST /api/auth/register
-        if (req.method === "POST" && pathname === "/api/auth/register") {
-          const { email, password } = (await req.json()) as { email: string; password: string }
-          if (!email || !password) {
-            return errorResponse("email and password are required", 400, origin)
-          }
-          const result = await Effect.runPromise(
-            auth.register(email, password).pipe(
-              Effect.catchAll((e) => Effect.fail(e))
-            )
-          ).catch((e) => { throw e })
-          return jsonResponse(result, origin)
-        }
-
-        // POST /api/auth/login
-        if (req.method === "POST" && pathname === "/api/auth/login") {
-          const { email, password } = (await req.json()) as { email: string; password: string }
-          if (!email || !password) {
-            return errorResponse("email and password are required", 400, origin)
-          }
-          const result = await Effect.runPromise(
-            auth.login(email, password)
-          ).catch((e) => { throw e })
-          return jsonResponse(result, origin)
-        }
-
-        // GET /api/auth/me
-        if (req.method === "GET" && pathname === "/api/auth/me") {
-          const authHeader = req.headers.get("Authorization")
-          if (!authHeader?.startsWith("Bearer ")) {
-            return errorResponse("Missing or invalid Authorization header", 401, origin)
-          }
-          const token = authHeader.slice(7)
-          const result = await Effect.runPromise(
-            auth.verify(token)
-          ).catch((e) => { throw e })
-          return jsonResponse(result, origin)
-        }
-
-        // POST /api/tests
-        if (req.method === "POST" && pathname === "/api/tests") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const { test_type, test_date, value_a, value_b, max_hr, notes } = (await req.json()) as any
-          const result = await Effect.runPromise(
-            tests.save(authResult.user.id, { test_type, test_date, value_a, value_b, max_hr, notes })
-          )
-          return jsonResponse(result, origin)
-        }
-
-        // GET /api/tests
-        if (req.method === "GET" && pathname === "/api/tests") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const results = await Effect.runPromise(
-            tests.list(authResult.user.id)
-          )
-          return jsonResponse(results, origin)
-        }
-
-        // DELETE /api/tests/:id
-        if (req.method === "DELETE" && pathname.startsWith("/api/tests/")) {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const id = pathname.slice("/api/tests/".length)
-          const deleted = await Effect.runPromise(
-            tests.remove(authResult.user.id, id)
-          )
-          if (!deleted) return errorResponse("Not found", 404, origin)
-          return jsonResponse({ ok: true }, origin)
-        }
-
-        // POST /api/planner
-        if (req.method === "POST" && pathname === "/api/planner") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const { week_data, default_wu, default_cd, name } = (await req.json()) as any
-          const result = await Effect.runPromise(
-            planner.save(authResult.user.id, { week_data, default_wu, default_cd, name })
-          )
-          return jsonResponse(result, origin)
-        }
-
-        // GET /api/planner or /api/planner/:id
-        if (req.method === "GET" && pathname.startsWith("/api/planner")) {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const idSegment = pathname.slice("/api/planner".length)
-          if (idSegment && idSegment !== "/") {
-            const id = idSegment.startsWith("/") ? idSegment.slice(1) : idSegment
-            const result = await Effect.runPromise(
-              planner.getById(authResult.user.id, id)
-            )
-            if (!result) return errorResponse("Not found", 404, origin)
-            return jsonResponse(result, origin)
-          }
-          const results = await Effect.runPromise(
-            planner.list(authResult.user.id)
-          )
-          return jsonResponse(results, origin)
-        }
-
-        // POST /api/intervals/connect
-        if (req.method === "POST" && pathname === "/api/intervals/connect") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const { athlete_id, api_key } = (await req.json()) as { athlete_id: string; api_key: string }
-          if (!athlete_id || !api_key) {
-            return errorResponse("athlete_id and api_key are required", 400, origin)
-          }
-          await Effect.runPromise(
-            intervals.connect(authResult.user.id, athlete_id, api_key)
-          )
-          return jsonResponse({ ok: true }, origin)
-        }
-
-        // POST /api/intervals/sync
-        if (req.method === "POST" && pathname === "/api/intervals/sync") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const synced = await Effect.runPromise(
-            intervals.syncWellness(authResult.user.id)
-          ).catch((e) => { throw e })
-          return jsonResponse({ synced }, origin)
-        }
-
-        // GET /api/wellness
-        if (req.method === "GET" && pathname === "/api/wellness") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const from = url.searchParams.get("from") ?? undefined
-          const to = url.searchParams.get("to") ?? undefined
-          const records = await Effect.runPromise(
-            wellness.list(authResult.user.id, from, to)
-          )
-          return jsonResponse(records, origin)
-        }
-
-        // POST /api/activities/sync
-        if (req.method === "POST" && pathname === "/api/activities/sync") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const { from, to } = (await req.json()) as { from: string; to: string }
-          if (!from || !to) {
-            return errorResponse("from and to are required", 400, origin)
-          }
-          const synced = await Effect.runPromise(
-            activities.sync(authResult.user.id, from, to)
-          ).catch((e) => { throw e })
-          return jsonResponse({ synced }, origin)
-        }
-
-        // POST /api/intervals/export
-        if (req.method === "POST" && pathname === "/api/intervals/export") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const { week_data, start_date, default_wu, default_cd } = (await req.json()) as any
-          if (!week_data || !start_date) {
-            return errorResponse("week_data and start_date are required", 400, origin)
-          }
-          const exported = await Effect.runPromise(
-            workoutExport.exportWeek(authResult.user.id, { week_data, start_date, default_wu, default_cd })
-          ).catch((e) => { throw e })
-          return jsonResponse({ exported }, origin)
-        }
-
-        // GET /api/activities
-        if (req.method === "GET" && pathname === "/api/activities") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const from = url.searchParams.get("from") ?? undefined
-          const to = url.searchParams.get("to") ?? undefined
-          const records = await Effect.runPromise(
-            activities.list(authResult.user.id, from, to)
-          )
-          return jsonResponse(records, origin)
-        }
-
-        // POST /api/block/assess
-        if (req.method === "POST" && pathname === "/api/block/assess") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const result = await Effect.runPromise(
-            assessment.assess(authResult.user.id)
-          ).catch((e) => { throw e })
-          return jsonResponse(result, origin)
-        }
-
-        // POST /api/block
-        if (req.method === "POST" && pathname === "/api/block") {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const body = (await req.json()) as any
-          const result = await Effect.runPromise(
-            blocks.save(authResult.user.id, body)
-          )
-          return jsonResponse(result, origin, 201)
-        }
-
-        // POST /api/block/:id/push
-        if (req.method === "POST" && pathname.match(/^\/api\/block\/[^/]+\/push$/)) {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const id = pathname.split("/")[3]
-          const { mode } = (await req.json()) as { mode: "override" | "add_alongside" }
-          // Get block + events
-          const blockData = await Effect.runPromise(blocks.getById(authResult.user.id, id))
-          if (!blockData) return errorResponse("Not found", 404, origin)
-          // Push events to Intervals.icu via workoutExport
-          const exported = await Effect.runPromise(
-            workoutExport.exportWeek(authResult.user.id, {
-              week_data: JSON.parse(blockData.weeks),
-              start_date: blockData.start_date,
-              default_wu: 10,
-              default_cd: 5,
-            })
-          ).catch((e) => { throw e })
-          // Update sync data
-          await Effect.runPromise(
-            blocks.setSyncData(authResult.user.id, id, { pushedAt: new Date().toISOString(), pushMode: mode, eventCount: exported })
-          )
-          return jsonResponse({ ok: true, exported }, origin)
-        }
-
-        // GET /api/block or /api/block/:id
-        if (req.method === "GET" && pathname.startsWith("/api/block")) {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const idSegment = pathname.slice("/api/block".length)
-          if (idSegment && idSegment !== "/") {
-            const id = idSegment.startsWith("/") ? idSegment.slice(1) : idSegment
-            const result = await Effect.runPromise(blocks.getById(authResult.user.id, id))
-            if (!result) return errorResponse("Not found", 404, origin)
-            return jsonResponse(result, origin)
-          }
-          const results = await Effect.runPromise(blocks.list(authResult.user.id))
-          return jsonResponse(results, origin)
-        }
-
-        // DELETE /api/block/:id
-        if (req.method === "DELETE" && pathname.startsWith("/api/block/")) {
-          const authResult = await requireAuth(req, auth, origin)
-          if ("error" in authResult) return authResult.error
-          const id = pathname.slice("/api/block/".length)
-          await Effect.runPromise(blocks.delete(authResult.user.id, id))
-          return jsonResponse({ ok: true }, origin)
-        }
-
-        return errorResponse("Not found", 404, origin)
-      } catch (e) {
-        const message = e instanceof Error ? e.message : "Internal server error"
-        // Classify errors
-        if (message.includes("already registered") || message.includes("required")) {
-          return errorResponse(message, 400, origin)
-        }
-        if (message.includes("Invalid") || message.includes("token")) {
-          return errorResponse(message, 401, origin)
-        }
-        console.error("Unhandled error:", e)
-        return errorResponse(message, 500, origin)
-      }
-    },
-  })
-
-  console.log(`HTTP server listening on http://localhost:${server.port}`)
-  // Keep the effect alive
-  yield* Effect.never
+  return yield* auth.verify(token)
 })
+
+const readJson = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const raw = yield* req.json
+  return raw as any
+})
+
+// ── Response helpers ─────────────────────────────────────────────────
+
+const json = (body: unknown, status = 200) =>
+  HttpServerResponse.json(body, { status })
+
+const jsonError = (message: string, status: number) =>
+  HttpServerResponse.json({ error: message }, { status })
+
+// ── Routes ───────────────────────────────────────────────────────────
+
+// Auth (public)
+const authRoutes = HttpRouter.empty.pipe(
+  HttpRouter.post("/api/auth/register", Effect.gen(function* () {
+    const body = yield* readJson as Effect.Effect<{ email: string; password: string }>
+    if (!body.email || !body.password) return yield* badRequest("email and password are required")
+    const auth = yield* AuthService
+    const result = yield* auth.register(body.email, body.password)
+    return yield* json(result)
+  })),
+
+  HttpRouter.post("/api/auth/login", Effect.gen(function* () {
+    const body = yield* readJson as Effect.Effect<{ email: string; password: string }>
+    if (!body.email || !body.password) return yield* badRequest("email and password are required")
+    const auth = yield* AuthService
+    const result = yield* auth.login(body.email, body.password)
+    return yield* json(result)
+  })),
+
+  HttpRouter.get("/api/auth/me", Effect.gen(function* () {
+    const user = yield* extractUser
+    return yield* json(user)
+  })),
+)
+
+// Tests
+const testRoutes = HttpRouter.empty.pipe(
+  HttpRouter.post("/api/tests", Effect.gen(function* () {
+    const user = yield* extractUser
+    const body = yield* readJson
+    const tests = yield* TestResultsService
+    const result = yield* tests.save(user.id, body as any)
+    return yield* json(result)
+  })),
+
+  HttpRouter.get("/api/tests", Effect.gen(function* () {
+    const user = yield* extractUser
+    const tests = yield* TestResultsService
+    const result = yield* tests.list(user.id)
+    return yield* json(result)
+  })),
+)
+
+// Planner
+const plannerRoutes = HttpRouter.empty.pipe(
+  HttpRouter.post("/api/planner", Effect.gen(function* () {
+    const user = yield* extractUser
+    const body = yield* readJson as Effect.Effect<any>
+    const planner = yield* PlannerService
+    const result = yield* planner.save(user.id, body)
+    return yield* json(result)
+  })),
+)
+
+// Intervals.icu
+const intervalsRoutes = HttpRouter.empty.pipe(
+  HttpRouter.post("/api/intervals/connect", Effect.gen(function* () {
+    const user = yield* extractUser
+    const body = yield* readJson as Effect.Effect<{ athlete_id: string; api_key: string }>
+    if (!body.athlete_id || !body.api_key) return yield* badRequest("athlete_id and api_key are required")
+    const intervals = yield* IntervalsService
+    yield* intervals.connect(user.id, body.athlete_id, body.api_key)
+    return yield* json({ ok: true })
+  })),
+
+  HttpRouter.post("/api/intervals/sync", Effect.gen(function* () {
+    const user = yield* extractUser
+    const intervals = yield* IntervalsService
+    const synced = yield* intervals.syncWellness(user.id)
+    return yield* json({ synced })
+  })),
+
+  HttpRouter.post("/api/intervals/export", Effect.gen(function* () {
+    const user = yield* extractUser
+    const body = yield* readJson as Effect.Effect<any>
+    if (!body.week_data || !body.start_date) return yield* badRequest("week_data and start_date are required")
+    const workoutExport = yield* WorkoutExportService
+    const exported = yield* workoutExport.exportWeek(user.id, body)
+    return yield* json({ exported })
+  })),
+)
+
+// Wellness
+const wellnessRoutes = HttpRouter.empty.pipe(
+  HttpRouter.get("/api/wellness", Effect.gen(function* () {
+    const user = yield* extractUser
+    const req = yield* HttpServerRequest.HttpServerRequest
+    const url = new URL(req.url, "http://localhost")
+    const from = url.searchParams.get("from") ?? undefined
+    const to = url.searchParams.get("to") ?? undefined
+    const wellness = yield* WellnessService
+    const result = yield* wellness.list(user.id, from, to)
+    return yield* json(result)
+  })),
+)
+
+// Activities
+const activityRoutes = HttpRouter.empty.pipe(
+  HttpRouter.post("/api/activities/sync", Effect.gen(function* () {
+    const user = yield* extractUser
+    const body = yield* readJson as Effect.Effect<{ from: string; to: string }>
+    if (!body.from || !body.to) return yield* badRequest("from and to are required")
+    const activities = yield* ActivitiesService
+    const synced = yield* activities.sync(user.id, body.from, body.to)
+    return yield* json({ synced })
+  })),
+
+  HttpRouter.get("/api/activities", Effect.gen(function* () {
+    const user = yield* extractUser
+    const req = yield* HttpServerRequest.HttpServerRequest
+    const url = new URL(req.url, "http://localhost")
+    const from = url.searchParams.get("from") ?? undefined
+    const to = url.searchParams.get("to") ?? undefined
+    const activities = yield* ActivitiesService
+    const result = yield* activities.list(user.id, from, to)
+    return yield* json(result)
+  })),
+)
+
+// Block generator
+const blockRoutes = HttpRouter.empty.pipe(
+  HttpRouter.post("/api/block/assess", Effect.gen(function* () {
+    const user = yield* extractUser
+    const assess = yield* AssessmentService
+    const result = yield* assess.assess(user.id)
+    return yield* json(result)
+  })),
+
+  HttpRouter.post("/api/block", Effect.gen(function* () {
+    const user = yield* extractUser
+    const body = yield* readJson as Effect.Effect<any>
+    const blocks = yield* BlockService
+    const result = yield* blocks.save(user.id, body)
+    return yield* json(result, 201)
+  })),
+)
+
+// ── Combined router ──────────────────────────────────────────────────
+
+const router = HttpRouter.empty.pipe(
+  HttpRouter.concat(authRoutes),
+  HttpRouter.concat(testRoutes),
+  HttpRouter.concat(plannerRoutes),
+  HttpRouter.concat(intervalsRoutes),
+  HttpRouter.concat(wellnessRoutes),
+  HttpRouter.concat(activityRoutes),
+  HttpRouter.concat(blockRoutes),
+
+  // Routes that need path parsing (can't use static router)
+  HttpRouter.all("*", Effect.gen(function* () {
+    const req = yield* HttpServerRequest.HttpServerRequest
+    const url = new URL(req.url, "http://localhost")
+    const { pathname } = url
+    const method = req.method
+
+    // DELETE /api/tests/:id
+    if (method === "DELETE" && pathname.startsWith("/api/tests/")) {
+      const user = yield* extractUser
+      const id = pathname.slice("/api/tests/".length)
+      const tests = yield* TestResultsService
+      const deleted = yield* tests.remove(user.id, id)
+      if (!deleted) return yield* notFound()
+      return yield* json({ ok: true })
+    }
+
+    // GET /api/planner/:id or list
+    if (method === "GET" && pathname.startsWith("/api/planner")) {
+      const user = yield* extractUser
+      const planner = yield* PlannerService
+      const idSegment = pathname.slice("/api/planner".length)
+      if (idSegment && idSegment !== "/") {
+        const id = idSegment.startsWith("/") ? idSegment.slice(1) : idSegment
+        const result = yield* planner.getById(user.id, id)
+        if (!result) return yield* notFound()
+        return yield* json(result)
+      }
+      return yield* json(yield* planner.list(user.id))
+    }
+
+    // POST /api/block/:id/push
+    if (method === "POST" && pathname.match(/^\/api\/block\/[^/]+\/push$/)) {
+      const user = yield* extractUser
+      const id = pathname.split("/")[3]
+      const body = yield* readJson as Effect.Effect<{ mode: "override" | "add_alongside" }>
+      const blocks = yield* BlockService
+      const blockData = yield* blocks.getById(user.id, id)
+      if (!blockData) return yield* notFound()
+      const workoutExport = yield* WorkoutExportService
+      const exported = yield* workoutExport.exportWeek(user.id, {
+        week_data: JSON.parse(blockData.weeks),
+        start_date: blockData.start_date,
+        default_wu: 10,
+        default_cd: 5,
+      })
+      yield* blocks.setSyncData(user.id, id, {
+        pushedAt: new Date().toISOString(),
+        pushMode: body.mode,
+        eventCount: exported,
+      })
+      return yield* json({ ok: true, exported })
+    }
+
+    // GET /api/block or /api/block/:id
+    if (method === "GET" && pathname.startsWith("/api/block")) {
+      const user = yield* extractUser
+      const blocks = yield* BlockService
+      const idSegment = pathname.slice("/api/block".length)
+      if (idSegment && idSegment !== "/") {
+        const id = idSegment.startsWith("/") ? idSegment.slice(1) : idSegment
+        const result = yield* blocks.getById(user.id, id)
+        if (!result) return yield* notFound()
+        return yield* json(result)
+      }
+      return yield* json(yield* blocks.list(user.id))
+    }
+
+    // DELETE /api/block/:id
+    if (method === "DELETE" && pathname.startsWith("/api/block/")) {
+      const user = yield* extractUser
+      const id = pathname.slice("/api/block/".length)
+      const blocks = yield* BlockService
+      yield* blocks.delete(user.id, id)
+      return yield* json({ ok: true })
+    }
+
+    return yield* notFound()
+  })),
+)
+
+// ── CORS + Error handling middleware ──────────────────────────────────
+
+const withCors = HttpRouter.use(router, (handler) =>
+  Effect.gen(function* () {
+    const req = yield* HttpServerRequest.HttpServerRequest
+    const origin = req.headers["origin"] ?? null
+
+    // CORS preflight
+    if (req.method === "OPTIONS") {
+      return HttpServerResponse.empty({ status: 204, headers: corsHeaders(origin) })
+    }
+
+    const start = performance.now()
+
+    const response = yield* handler.pipe(
+      // Handle all errors
+      Effect.catchAll((err) => {
+        if (err instanceof HttpError) return jsonError(err.message, err.status)
+        if ("_tag" in (err as any)) {
+          const tagged = err as { _tag: string; message?: string }
+          switch (tagged._tag) {
+            case "EmailAlreadyRegistered": return jsonError("Email already registered", 400)
+            case "InvalidCredentials": return jsonError("Invalid email or password", 401)
+            case "InvalidToken": return jsonError(`Invalid token: ${(err as any).reason}`, 401)
+            case "NotFoundError": return jsonError("Not found", 404)
+            case "ValidationError": return jsonError((err as any).message, 400)
+            case "IntervalsNotConnected": return jsonError("Intervals.icu not connected", 400)
+            case "IntervalsApiError": return jsonError((err as any).message, 502)
+          }
+        }
+        const message = err instanceof Error ? err.message : String(err)
+        return Effect.gen(function* () {
+          yield* Effect.logError("Unhandled error").pipe(Effect.annotateLogs("error", message))
+          return yield* jsonError(message, 500)
+        })
+      }),
+    )
+
+    const url = new URL(req.url, "http://localhost")
+    yield* Effect.logInfo("request").pipe(
+      Effect.annotateLogs("method", req.method),
+      Effect.annotateLogs("path", url.pathname),
+      Effect.annotateLogs("status", String(response.status)),
+      Effect.annotateLogs("duration_ms", String(Math.round(performance.now() - start))),
+    )
+
+    // Add CORS headers to response
+    return HttpServerResponse.setHeaders(response, corsHeaders(origin))
+  })
+)
+
+// ── Server layer ─────────────────────────────────────────────────────
+
+export { withCors as app }

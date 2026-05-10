@@ -1,5 +1,6 @@
-import { Effect, Context, Layer } from "effect"
+import { Effect } from "effect"
 import { DatabaseService } from "./Database"
+import { NotFoundError } from "./Errors"
 
 export interface BlockRow {
   id: string
@@ -53,21 +54,8 @@ export interface BlockWithEvents extends BlockRow {
   events: BlockEventRow[]
 }
 
-export class BlockService extends Context.Tag("BlockService")<
-  BlockService,
-  {
-    readonly save: (userId: string, data: SaveBlockRequest) => Effect.Effect<BlockRow>
-    readonly list: (userId: string) => Effect.Effect<BlockRow[]>
-    readonly getById: (userId: string, id: string) => Effect.Effect<BlockWithEvents | undefined>
-    readonly updateStatus: (userId: string, id: string, status: string) => Effect.Effect<void>
-    readonly setSyncData: (userId: string, id: string, syncData: object) => Effect.Effect<void>
-    readonly delete: (userId: string, id: string) => Effect.Effect<void>
-  }
->() {}
-
-export const BlockServiceLive = Layer.effect(
-  BlockService,
-  Effect.gen(function* () {
+export class BlockService extends Effect.Service<BlockService>()("BlockService", {
+  effect: Effect.gen(function* () {
     const db = yield* DatabaseService
 
     return {
@@ -94,7 +82,10 @@ export const BlockServiceLive = Layer.effect(
             "SELECT * FROM nsa_blocks WHERE id = ?",
             [id]
           )
-          return row!
+          if (!row) {
+            return yield* new NotFoundError({ entity: "Block", id })
+          }
+          return row
         }),
 
       list: (userId: string) =>
@@ -136,5 +127,6 @@ export const BlockServiceLive = Layer.effect(
           [userId, id]
         ),
     }
-  })
-)
+  }),
+  dependencies: [DatabaseService.Default],
+}) {}

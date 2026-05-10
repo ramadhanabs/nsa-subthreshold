@@ -1,34 +1,47 @@
 import { Effect, Layer } from "effect"
-import { DatabaseServiceLive } from "./services/Database"
-import { AuthServiceLive } from "./services/Auth"
-import { TestResultsServiceLive } from "./services/TestResults"
-import { PlannerServiceLive } from "./services/Planner"
-import { IntervalsServiceLive } from "./services/Intervals"
-import { WellnessServiceLive } from "./services/Wellness"
-import { ActivitiesServiceLive } from "./services/Activities"
-import { WorkoutExportServiceLive } from "./services/WorkoutExport"
-import { BlockServiceLive } from "./services/Block"
-import { AssessmentServiceLive } from "./services/Assessment"
+import { BunRuntime } from "@effect/platform-bun"
+import { BunHttpServer } from "@effect/platform-bun"
+import { HttpServer } from "@effect/platform"
+import { DatabaseService } from "./services/Database"
+import { AuthService } from "./services/Auth"
+import { TestResultsService } from "./services/TestResults"
+import { PlannerService } from "./services/Planner"
+import { IntervalsService } from "./services/Intervals"
+import { WellnessService } from "./services/Wellness"
+import { ActivitiesService } from "./services/Activities"
+import { WorkoutExportService } from "./services/WorkoutExport"
+import { BlockService } from "./services/Block"
+import { AssessmentService } from "./services/Assessment"
 import { runMigrations } from "./migrations"
-import { startServer } from "./server"
+import { app } from "./server"
+
+const port = Number(process.env.PORT) || 3002
+
+const AppServicesLive = Layer.mergeAll(
+  DatabaseService.Default,
+  AuthService.Default,
+  TestResultsService.Default,
+  PlannerService.Default,
+  IntervalsService.Default,
+  WellnessService.Default,
+  ActivitiesService.Default,
+  WorkoutExportService.Default,
+  BlockService.Default,
+  AssessmentService.Default,
+)
+
+const ServerLive = HttpServer.serve(app).pipe(
+  HttpServer.withLogAddress,
+  Layer.provide(BunHttpServer.layer({ port })),
+  Layer.provide(AppServicesLive),
+)
 
 const main = Effect.gen(function* () {
   yield* runMigrations
-  yield* startServer
-})
+}).pipe(Effect.provide(AppServicesLive))
 
-// All service layers depend on DatabaseService
-const MainLive = Layer.mergeAll(
-  DatabaseServiceLive,
-  AuthServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  TestResultsServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  PlannerServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  IntervalsServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  WellnessServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  ActivitiesServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  WorkoutExportServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  BlockServiceLive.pipe(Layer.provide(DatabaseServiceLive)),
-  AssessmentServiceLive.pipe(Layer.provide(DatabaseServiceLive))
+BunRuntime.runMain(
+  main.pipe(
+    Effect.andThen(Layer.launch(ServerLive))
+  )
 )
-
-Effect.runPromise(main.pipe(Effect.provide(MainLive)))

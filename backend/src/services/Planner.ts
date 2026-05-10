@@ -1,5 +1,6 @@
-import { Effect, Context, Layer } from "effect"
+import { Effect } from "effect"
 import { DatabaseService } from "./Database"
+import { NotFoundError } from "./Errors"
 
 export interface PlannerResult {
   id: string
@@ -11,18 +12,8 @@ export interface PlannerResult {
   created_at: string
 }
 
-export class PlannerService extends Context.Tag("PlannerService")<
-  PlannerService,
-  {
-    readonly save: (userId: string, data: { week_data: string; default_wu: number; default_cd: number; name?: string }) => Effect.Effect<PlannerResult>
-    readonly list: (userId: string) => Effect.Effect<PlannerResult[]>
-    readonly getById: (userId: string, id: string) => Effect.Effect<PlannerResult | undefined>
-  }
->() {}
-
-export const PlannerServiceLive = Layer.effect(
-  PlannerService,
-  Effect.gen(function* () {
+export class PlannerService extends Effect.Service<PlannerService>()("PlannerService", {
+  effect: Effect.gen(function* () {
     const db = yield* DatabaseService
 
     return {
@@ -37,7 +28,10 @@ export const PlannerServiceLive = Layer.effect(
             "SELECT * FROM planner_results WHERE id = ?",
             [id]
           )
-          return row!
+          if (!row) {
+            return yield* new NotFoundError({ entity: "PlannerResult", id })
+          }
+          return row
         }),
 
       list: (userId: string) =>
@@ -52,5 +46,6 @@ export const PlannerServiceLive = Layer.effect(
           [userId, id]
         ),
     }
-  })
-)
+  }),
+  dependencies: [DatabaseService.Default],
+}) {}

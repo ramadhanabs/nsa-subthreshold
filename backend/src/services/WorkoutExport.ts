@@ -1,5 +1,6 @@
-import { Effect, Context, Layer } from "effect"
+import { Effect } from "effect"
 import { DatabaseService } from "./Database"
+import { IntervalsNotConnected, IntervalsApiError } from "./Errors"
 
 interface User {
   id: string
@@ -20,16 +21,8 @@ export interface ExportRequest {
   default_cd: number
 }
 
-export class WorkoutExportService extends Context.Tag("WorkoutExportService")<
-  WorkoutExportService,
-  {
-    readonly exportWeek: (userId: string, request: ExportRequest) => Effect.Effect<number, Error>
-  }
->() {}
-
-export const WorkoutExportServiceLive = Layer.effect(
-  WorkoutExportService,
-  Effect.gen(function* () {
+export class WorkoutExportService extends Effect.Service<WorkoutExportService>()("WorkoutExportService", {
+  effect: Effect.gen(function* () {
     const db = yield* DatabaseService
 
     return {
@@ -40,7 +33,7 @@ export const WorkoutExportServiceLive = Layer.effect(
             [userId]
           )
           if (!user || !user.intervals_icu_athlete_id || !user.intervals_icu_api_key) {
-            return yield* Effect.fail(new Error("Intervals.icu not connected. Call /api/intervals/connect first."))
+            return yield* new IntervalsNotConnected()
           }
 
           const athleteId = user.intervals_icu_athlete_id
@@ -102,11 +95,14 @@ export const WorkoutExportServiceLive = Layer.effect(
                   }),
                 })
                 if (!resp.ok) {
-                  throw new Error(`Intervals.icu API error: ${resp.status} ${resp.statusText}`)
+                  throw { status: resp.status, message: `${resp.status} ${resp.statusText}` }
                 }
                 return resp.json()
               },
-              catch: (e) => new Error(`Failed to export workout: ${e}`),
+              catch: (e: any) =>
+                e?.status
+                  ? new IntervalsApiError({ status: e.status, message: e.message })
+                  : new IntervalsApiError({ status: 0, message: `Failed to export workout: ${e}` }),
             })
 
             exported++
@@ -115,5 +111,6 @@ export const WorkoutExportServiceLive = Layer.effect(
           return exported
         }),
     }
-  })
-)
+  }),
+  dependencies: [DatabaseService.Default],
+}) {}
