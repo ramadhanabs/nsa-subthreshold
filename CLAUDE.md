@@ -74,7 +74,8 @@ ssh dev@lab "sudo journalctl -u nsa-backend -f"    # tail logs
 ### Environment variables
 
 Backend `.env` at `~/nsa-backend/.env` (not synced):
-- `JWT_SECRET` — random hex string for JWT signing
+- `JWT_SECRET` — required, random string for JWT signing (server crashes without it)
+- `ENCRYPTION_KEY` — required, 64-char hex string (32 bytes) for encrypting API keys at rest
 - `PORT` — server port (default 3002)
 
 ### Database backup
