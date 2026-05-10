@@ -1,6 +1,7 @@
 import { Effect } from "effect"
 import { DatabaseService } from "./Database"
 import { IntervalsNotConnected, IntervalsApiError } from "./Errors"
+import { encrypt, decrypt, isEncrypted } from "./Crypto"
 
 interface User {
   id: string
@@ -27,7 +28,7 @@ export class IntervalsService extends Effect.Service<IntervalsService>()("Interv
       connect: (userId: string, athleteId: string, apiKey: string) =>
         db.run(
           "UPDATE users SET intervals_icu_athlete_id = ?, intervals_icu_api_key = ?, updated_at = datetime('now') WHERE id = ?",
-          [athleteId, apiKey, userId]
+          [athleteId, encrypt(apiKey), userId]
         ),
 
       syncWellness: (userId: string) =>
@@ -41,7 +42,8 @@ export class IntervalsService extends Effect.Service<IntervalsService>()("Interv
           }
 
           const athleteId = user.intervals_icu_athlete_id
-          const apiKey = user.intervals_icu_api_key
+          const rawKey = user.intervals_icu_api_key!
+          const apiKey = isEncrypted(rawKey) ? decrypt(rawKey) : rawKey
 
           const today = new Date()
           const oldest = new Date(today)

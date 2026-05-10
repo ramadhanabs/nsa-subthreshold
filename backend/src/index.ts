@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Schedule } from "effect"
 import { BunRuntime } from "@effect/platform-bun"
 import { BunHttpServer } from "@effect/platform-bun"
 import { HttpServer } from "@effect/platform"
@@ -13,6 +13,7 @@ import { WorkoutExportService } from "./services/WorkoutExport"
 import { BlockService } from "./services/Block"
 import { AssessmentService } from "./services/Assessment"
 import { EmailService } from "./services/Email"
+import { RateLimitService } from "./services/RateLimit"
 import { runMigrations } from "./migrations"
 import { app } from "./server"
 
@@ -30,6 +31,7 @@ const AppServicesLive = Layer.mergeAll(
   BlockService.Default,
   AssessmentService.Default,
   EmailService.Default,
+  RateLimitService.Default,
 )
 
 const ServerLive = HttpServer.serve(app).pipe(
@@ -40,6 +42,11 @@ const ServerLive = HttpServer.serve(app).pipe(
 
 const main = Effect.gen(function* () {
   yield* runMigrations
+  const rl = yield* RateLimitService
+  yield* rl.prune().pipe(
+    Effect.schedule(Schedule.fixed("5 minutes")),
+    Effect.fork,
+  )
 }).pipe(Effect.provide(AppServicesLive))
 
 BunRuntime.runMain(

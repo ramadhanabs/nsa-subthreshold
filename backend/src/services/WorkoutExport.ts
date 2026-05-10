@@ -1,6 +1,7 @@
 import { Effect } from "effect"
 import { DatabaseService } from "./Database"
 import { IntervalsNotConnected, IntervalsApiError } from "./Errors"
+import { decrypt, isEncrypted } from "./Crypto"
 
 interface User {
   id: string
@@ -37,7 +38,8 @@ export class WorkoutExportService extends Effect.Service<WorkoutExportService>()
           }
 
           const athleteId = user.intervals_icu_athlete_id
-          const apiKey = user.intervals_icu_api_key
+          const rawKey = user.intervals_icu_api_key!
+          const apiKey = isEncrypted(rawKey) ? decrypt(rawKey) : rawKey
           const basicAuth = Buffer.from(`API_KEY:${apiKey}`).toString("base64")
 
           const { week_data, start_date, default_wu, default_cd } = request

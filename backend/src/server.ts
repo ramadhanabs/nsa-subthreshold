@@ -1,4 +1,4 @@
-import { Effect, Data } from "effect"
+import { Effect, Data, Schema } from "effect"
 import {
   HttpRouter,
   HttpServer,
@@ -15,6 +15,8 @@ import { WorkoutExportService } from "./services/WorkoutExport"
 import { BlockService } from "./services/Block"
 import { AssessmentService } from "./services/Assessment"
 import { EmailService } from "./services/Email"
+import { RateLimitService } from "./services/RateLimit"
+import * as S from "./Schemas"
 
 // ── HTTP Error ────────────────────────────────────────────────────────
 
@@ -66,11 +68,28 @@ const extractAdmin = Effect.gen(function* () {
   return user
 })
 
-const readJson = Effect.gen(function* () {
+const readBody = <A, I>(schema: Schema.Schema<A, I>) =>
+  Effect.gen(function* () {
+    const req = yield* HttpServerRequest.HttpServerRequest
+    const raw = yield* req.json
+    return yield* Schema.decodeUnknown(schema)(raw).pipe(
+      Effect.mapError((e) => new HttpError({ status: 400, message: `Invalid request body: ${e.message}` }))
+    )
+  })
+
+const getClientIp = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
-  const raw = yield* req.json
-  return raw as any
+  return req.headers["x-forwarded-for"]?.split(",")[0]?.trim()
+    ?? req.headers["x-real-ip"]
+    ?? "unknown"
 })
+
+const rateLimit = (tier: "auth" | "write" | "read") =>
+  Effect.gen(function* () {
+    const ip = yield* getClientIp
+    const rl = yield* RateLimitService
+    yield* rl.check(ip, tier)
+  })
 
 // ── Response helpers ─────────────────────────────────────────────────
 
@@ -85,8 +104,8 @@ const jsonError = (message: string, status: number) =>
 // Auth (public)
 const authRoutes = HttpRouter.empty.pipe(
   HttpRouter.post("/api/auth/register", Effect.gen(function* () {
-    const body = yield* readJson
-    if (!body.token || !body.password) return yield* badRequest("token and password are required")
+    yield* rateLimit("auth")
+    const body = yield* readBody(S.RegisterBody)
     const auth = yield* AuthService
     const result = yield* auth.register(body.token, body.password)
     // Send welcome email (fire and forget)
@@ -96,8 +115,8 @@ const authRoutes = HttpRouter.empty.pipe(
   })),
 
   HttpRouter.post("/api/auth/login", Effect.gen(function* () {
-    const body = yield* readJson as Effect.Effect<{ email: string; password: string }>
-    if (!body.email || !body.password) return yield* badRequest("email and password are required")
+    yield* rateLimit("auth")
+    const body = yield* readBody(S.LoginBody)
     const auth = yield* AuthService
     const result = yield* auth.login(body.email, body.password)
     return yield* json(result)
@@ -109,18 +128,17 @@ const authRoutes = HttpRouter.empty.pipe(
   })),
 
   HttpRouter.post("/api/auth/change-password", Effect.gen(function* () {
+    yield* rateLimit("write")
     const user = yield* extractUser
-    const body = yield* readJson
-    if (!body.currentPassword || !body.newPassword) return yield* badRequest("currentPassword and newPassword are required")
-    if (body.newPassword.length < 8) return yield* badRequest("Password must be at least 8 characters")
+    const body = yield* readBody(S.ChangePasswordBody)
     const auth = yield* AuthService
     const result = yield* auth.changePassword(user.id, body.currentPassword, body.newPassword)
     return yield* json(result)
   })),
 
   HttpRouter.post("/api/auth/forgot-password", Effect.gen(function* () {
-    const body = yield* readJson
-    if (!body.email) return yield* badRequest("email is required")
+    yield* rateLimit("auth")
+    const body = yield* readBody(S.ForgotPasswordBody)
     const auth = yield* AuthService
     const token = yield* auth.createResetToken(body.email)
     if (token) {
@@ -132,9 +150,8 @@ const authRoutes = HttpRouter.empty.pipe(
   })),
 
   HttpRouter.post("/api/auth/reset-password", Effect.gen(function* () {
-    const body = yield* readJson
-    if (!body.token || !body.password) return yield* badRequest("token and password are required")
-    if (body.password.length < 8) return yield* badRequest("Password must be at least 8 characters")
+    yield* rateLimit("auth")
+    const body = yield* readBody(S.ResetPasswordBody)
     const auth = yield* AuthService
     const result = yield* auth.resetPassword(body.token, body.password)
     return yield* json(result)
@@ -144,8 +161,9 @@ const authRoutes = HttpRouter.empty.pipe(
 // Tests
 const testRoutes = HttpRouter.empty.pipe(
   HttpRouter.post("/api/tests", Effect.gen(function* () {
+    yield* rateLimit("write")
     const user = yield* extractUser
-    const body = yield* readJson
+    const body = yield* readBody(S.SaveTestBody)
     const tests = yield* TestResultsService
     const result = yield* tests.save(user.id, body as any)
     return yield* json(result)
@@ -162,10 +180,11 @@ const testRoutes = HttpRouter.empty.pipe(
 // Planner
 const plannerRoutes = HttpRouter.empty.pipe(
   HttpRouter.post("/api/planner", Effect.gen(function* () {
+    yield* rateLimit("write")
     const user = yield* extractUser
-    const body = yield* readJson as Effect.Effect<any>
+    const body = yield* readBody(S.SavePlannerBody)
     const planner = yield* PlannerService
-    const result = yield* planner.save(user.id, body)
+    const result = yield* planner.save(user.id, body as any)
     return yield* json(result)
   })),
 )
@@ -173,15 +192,16 @@ const plannerRoutes = HttpRouter.empty.pipe(
 // Intervals.icu
 const intervalsRoutes = HttpRouter.empty.pipe(
   HttpRouter.post("/api/intervals/connect", Effect.gen(function* () {
+    yield* rateLimit("write")
     const user = yield* extractUser
-    const body = yield* readJson as Effect.Effect<{ athlete_id: string; api_key: string }>
-    if (!body.athlete_id || !body.api_key) return yield* badRequest("athlete_id and api_key are required")
+    const body = yield* readBody(S.ConnectBody)
     const intervals = yield* IntervalsService
     yield* intervals.connect(user.id, body.athlete_id, body.api_key)
     return yield* json({ ok: true })
   })),
 
   HttpRouter.post("/api/intervals/sync", Effect.gen(function* () {
+    yield* rateLimit("write")
     const user = yield* extractUser
     const intervals = yield* IntervalsService
     const synced = yield* intervals.syncWellness(user.id)
@@ -189,11 +209,11 @@ const intervalsRoutes = HttpRouter.empty.pipe(
   })),
 
   HttpRouter.post("/api/intervals/export", Effect.gen(function* () {
+    yield* rateLimit("write")
     const user = yield* extractUser
-    const body = yield* readJson as Effect.Effect<any>
-    if (!body.week_data || !body.start_date) return yield* badRequest("week_data and start_date are required")
+    const body = yield* readBody(S.ExportBody)
     const workoutExport = yield* WorkoutExportService
-    const exported = yield* workoutExport.exportWeek(user.id, body)
+    const exported = yield* workoutExport.exportWeek(user.id, body as any)
     return yield* json({ exported })
   })),
 )
@@ -215,9 +235,9 @@ const wellnessRoutes = HttpRouter.empty.pipe(
 // Activities
 const activityRoutes = HttpRouter.empty.pipe(
   HttpRouter.post("/api/activities/sync", Effect.gen(function* () {
+    yield* rateLimit("write")
     const user = yield* extractUser
-    const body = yield* readJson as Effect.Effect<{ from: string; to: string }>
-    if (!body.from || !body.to) return yield* badRequest("from and to are required")
+    const body = yield* readBody(S.SyncBody)
     const activities = yield* ActivitiesService
     const synced = yield* activities.sync(user.id, body.from, body.to)
     return yield* json({ synced })
@@ -238,6 +258,7 @@ const activityRoutes = HttpRouter.empty.pipe(
 // Block generator
 const blockRoutes = HttpRouter.empty.pipe(
   HttpRouter.post("/api/block/assess", Effect.gen(function* () {
+    yield* rateLimit("write")
     const user = yield* extractUser
     const assess = yield* AssessmentService
     const result = yield* assess.assess(user.id)
@@ -245,10 +266,11 @@ const blockRoutes = HttpRouter.empty.pipe(
   })),
 
   HttpRouter.post("/api/block", Effect.gen(function* () {
+    yield* rateLimit("write")
     const user = yield* extractUser
-    const body = yield* readJson as Effect.Effect<any>
+    const body = yield* readBody(S.CreateBlockBody)
     const blocks = yield* BlockService
-    const result = yield* blocks.save(user.id, body)
+    const result = yield* blocks.save(user.id, body as any)
     return yield* json(result, 201)
   })),
 )
@@ -256,9 +278,9 @@ const blockRoutes = HttpRouter.empty.pipe(
 // Admin
 const adminRoutes = HttpRouter.empty.pipe(
   HttpRouter.post("/api/admin/invite", Effect.gen(function* () {
+    yield* rateLimit("write")
     const admin = yield* extractAdmin
-    const body = yield* readJson
-    if (!body.email) return yield* badRequest("email is required")
+    const body = yield* readBody(S.InviteBody)
     const auth = yield* AuthService
     const token = yield* auth.invite(body.email)
     const emailSvc = yield* EmailService
@@ -292,6 +314,7 @@ const router = HttpRouter.empty.pipe(
 
     // DELETE /api/tests/:id
     if (method === "DELETE" && pathname.startsWith("/api/tests/")) {
+      yield* rateLimit("write")
       const user = yield* extractUser
       const id = pathname.slice("/api/tests/".length)
       const tests = yield* TestResultsService
@@ -302,6 +325,7 @@ const router = HttpRouter.empty.pipe(
 
     // GET /api/planner/:id or list
     if (method === "GET" && pathname.startsWith("/api/planner")) {
+      yield* rateLimit("read")
       const user = yield* extractUser
       const planner = yield* PlannerService
       const idSegment = pathname.slice("/api/planner".length)
@@ -316,9 +340,10 @@ const router = HttpRouter.empty.pipe(
 
     // POST /api/block/:id/push
     if (method === "POST" && pathname.match(/^\/api\/block\/[^/]+\/push$/)) {
+      yield* rateLimit("write")
       const user = yield* extractUser
       const id = pathname.split("/")[3]
-      const body = yield* readJson as Effect.Effect<{ mode: "override" | "add_alongside" }>
+      const body = yield* readBody(S.PushBlockBody)
       const blocks = yield* BlockService
       const blockData = yield* blocks.getById(user.id, id)
       if (!blockData) return yield* notFound()
@@ -339,6 +364,7 @@ const router = HttpRouter.empty.pipe(
 
     // GET /api/block or /api/block/:id
     if (method === "GET" && pathname.startsWith("/api/block")) {
+      yield* rateLimit("read")
       const user = yield* extractUser
       const blocks = yield* BlockService
       const idSegment = pathname.slice("/api/block".length)
@@ -353,6 +379,7 @@ const router = HttpRouter.empty.pipe(
 
     // DELETE /api/block/:id
     if (method === "DELETE" && pathname.startsWith("/api/block/")) {
+      yield* rateLimit("write")
       const user = yield* extractUser
       const id = pathname.slice("/api/block/".length)
       const blocks = yield* BlockService
