@@ -208,6 +208,13 @@ const intervalsRoutes = HttpRouter.empty.pipe(
     return yield* json({ synced })
   })),
 
+  HttpRouter.get("/api/intervals/sport-settings", Effect.gen(function* () {
+    const user = yield* extractUser
+    const intervals = yield* IntervalsService
+    const settings = yield* intervals.getSportSettings(user.id)
+    return yield* json(settings)
+  })),
+
   HttpRouter.post("/api/intervals/export", Effect.gen(function* () {
     yield* rateLimit("write")
     const user = yield* extractUser

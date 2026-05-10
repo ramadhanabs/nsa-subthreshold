@@ -19,17 +19,19 @@ import { app } from "./server"
 
 const port = Number(process.env.PORT) || 3002
 
+const DbLayer = DatabaseService.Default
+
 const AppServicesLive = Layer.mergeAll(
-  DatabaseService.Default,
-  AuthService.Default,
-  TestResultsService.Default,
-  PlannerService.Default,
-  IntervalsService.Default,
-  WellnessService.Default,
-  ActivitiesService.Default,
-  WorkoutExportService.Default,
-  BlockService.Default,
-  AssessmentService.Default,
+  DbLayer,
+  AuthService.Default.pipe(Layer.provide(DbLayer)),
+  TestResultsService.Default.pipe(Layer.provide(DbLayer)),
+  PlannerService.Default.pipe(Layer.provide(DbLayer)),
+  IntervalsService.Default.pipe(Layer.provide(DbLayer)),
+  WellnessService.Default.pipe(Layer.provide(DbLayer)),
+  ActivitiesService.Default.pipe(Layer.provide(DbLayer)),
+  WorkoutExportService.Default.pipe(Layer.provide(DbLayer)),
+  BlockService.Default.pipe(Layer.provide(DbLayer)),
+  AssessmentService.Default.pipe(Layer.provide(DbLayer)),
   EmailService.Default,
   RateLimitService.Default,
 )

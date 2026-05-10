@@ -90,6 +90,64 @@ export class IntervalsService extends Effect.Service<IntervalsService>()("Interv
 
           return count
         }),
+
+      getSportSettings: (userId: string) =>
+        Effect.gen(function* () {
+          const user = yield* db.get<User>(
+            "SELECT id, intervals_icu_athlete_id, intervals_icu_api_key FROM users WHERE id = ?",
+            [userId]
+          )
+          if (!user || !user.intervals_icu_athlete_id || !user.intervals_icu_api_key) {
+            return yield* new IntervalsNotConnected()
+          }
+
+          const athleteId = user.intervals_icu_athlete_id
+          const rawKey = user.intervals_icu_api_key!
+          const apiKey = isEncrypted(rawKey) ? decrypt(rawKey) : rawKey
+          const basicAuth = Buffer.from(`API_KEY:${apiKey}`).toString("base64")
+
+          const url = `https://intervals.icu/api/v1/athlete/${athleteId}`
+          const data = yield* Effect.tryPromise({
+            try: async () => {
+              const resp = await fetch(url, {
+                headers: { Authorization: `Basic ${basicAuth}` },
+              })
+              if (!resp.ok) {
+                throw { status: resp.status, message: `${resp.status} ${resp.statusText}` }
+              }
+              return resp.json() as Promise<{ sportSettings: any[]; icu_weight: number | null }>
+            },
+            catch: (e: any) =>
+              e?.status
+                ? new IntervalsApiError({ status: e.status, message: e.message })
+                : new IntervalsApiError({ status: 0, message: `Failed to fetch athlete data: ${e}` }),
+          })
+
+          // Find running sport settings
+          const runSettings = data.sportSettings?.find((s: any) =>
+            s.types?.includes("Run")
+          )
+
+          return {
+            weight: data.icu_weight,
+            run: runSettings ? {
+              ftp: runSettings.ftp as number | null,
+              criticalPower: runSettings.mmp_model?.criticalPower as number | null,
+              wPrime: runSettings.mmp_model?.wPrime as number | null,
+              pMax: runSettings.mmp_model?.pMax as number | null,
+              eFtp: runSettings.mmp_model?.ftp as number | null,
+              lthr: runSettings.lthr as number | null,
+              maxHr: runSettings.max_hr as number | null,
+              thresholdPace: runSettings.threshold_pace as number | null,
+              powerZones: runSettings.power_zones as number[] | null,
+              powerZoneNames: runSettings.power_zone_names as string[] | null,
+              hrZones: runSettings.hr_zones as number[] | null,
+              hrZoneNames: runSettings.hr_zone_names as string[] | null,
+              paceZones: runSettings.pace_zones as number[] | null,
+              paceZoneNames: runSettings.pace_zone_names as string[] | null,
+            } : null,
+          }
+        }),
     }
   }),
   dependencies: [DatabaseService.Default],

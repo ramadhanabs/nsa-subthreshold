@@ -4,13 +4,13 @@ import { useAuth } from "@/lib/auth-context"
 import { apiFetch } from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { get5kPace, getHR, getPaceZones, fmtPace, type InputMode } from "@/lib/calculator"
-import { Sparkles, ArrowRight } from "lucide-react"
+import { Sparkles, ArrowRight, Info } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import TestTracker from "@/components/test-tracker"
 import ActivitiesList from "@/components/activities-list"
 // import BudgetCalculator from "@/components/budget-calculator"
 import TrainingSummary from "@/components/training-summary"
 import { AdminInvite } from "@/components/admin-invite"
-import { ChangePassword } from "@/components/change-password"
 
 interface TestResult {
   id: string
@@ -28,6 +28,19 @@ interface WellnessRecord {
   atl?: number | null
   resting_hr?: number | null
   sleep_hours?: number | null
+}
+
+interface RunSportSettings {
+  ftp: number | null
+  criticalPower: number | null
+  wPrime: number | null
+  pMax: number | null
+  eFtp: number | null
+  lthr: number | null
+  maxHr: number | null
+  thresholdPace: number | null
+  powerZones: number[] | null
+  powerZoneNames: string[] | null
 }
 
 function GlobeIcon() {
@@ -71,6 +84,7 @@ export default function DashboardPage() {
   const [connectLoading, setConnectLoading] = useState(false)
   const [syncLoading, setSyncLoading] = useState(false)
   const [intervalsOpen, setIntervalsOpen] = useState(false)
+  const [runPower, setRunPower] = useState<RunSportSettings | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
@@ -92,6 +106,11 @@ export default function DashboardPage() {
       // Check admin status
       apiFetch<{ is_admin: boolean }>("/api/auth/me")
         .then((data) => setIsAdmin(data.is_admin))
+        .catch(() => {})
+
+      // Fetch running power settings from Intervals.icu
+      apiFetch<{ run: RunSportSettings | null }>("/api/intervals/sport-settings")
+        .then((data) => { if (data.run) setRunPower(data.run) })
         .catch(() => {})
 
       // Try fetching wellness data (last 7 days)
@@ -228,9 +247,12 @@ export default function DashboardPage() {
                 <div className="text-xs text-muted-foreground">NSA Runner</div>
               </div>
             </div>
-            <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
+            <Link
+              to="/profile"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+            >
               Edit profile
-            </button>
+            </Link>
           </div>
 
           {/* Athlete parameters + Training zones */}
@@ -255,6 +277,34 @@ export default function DashboardPage() {
                     <div className="text-[11px] text-muted-foreground">LTHR</div>
                     <div className="text-base font-medium">{derived.hr.lthr} bpm</div>
                   </div>
+                  {runPower?.ftp && (
+                    <div className="bg-muted rounded-lg p-2.5">
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        Run FTP
+                        <Tooltip>
+                          <TooltipTrigger className="cursor-help"><Info className="w-2.5 h-2.5 text-muted-foreground/50" /></TooltipTrigger>
+                          <TooltipContent className="max-w-[220px] text-xs leading-relaxed">
+                            Functional Threshold Power — the highest power you can sustain for ~1 hour. Set manually in Intervals.icu settings.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="text-base font-medium">{runPower.ftp}W</div>
+                    </div>
+                  )}
+                  {runPower?.criticalPower && (
+                    <div className="bg-muted rounded-lg p-2.5">
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        Run CP
+                        <Tooltip>
+                          <TooltipTrigger className="cursor-help"><Info className="w-2.5 h-2.5 text-muted-foreground/50" /></TooltipTrigger>
+                          <TooltipContent className="max-w-[240px] text-xs leading-relaxed">
+                            Critical Power — modeled from your best efforts (MMP curve). Unlike FTP, CP is mathematically derived and represents the boundary between sustainable and unsustainable intensity. W': {runPower.wPrime ? `${(runPower.wPrime / 1000).toFixed(1)}kJ` : "—"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="text-base font-medium">{runPower.criticalPower}W</div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -267,9 +317,15 @@ export default function DashboardPage() {
                     <div className="text-xs font-medium">
                       {fmtPace(derived.paceZones.long[1])}–{fmtPace(derived.paceZones.easyMax)}/km
                     </div>
-                    <div className="text-[11px] text-muted-foreground min-w-[64px] text-right">
-                      &lt; {derived.hr.easy} bpm
-                    </div>
+                    {runPower?.ftp && runPower.powerZones ? (
+                      <div className="text-[11px] text-muted-foreground min-w-[80px] text-right">
+                        &lt; {Math.round(runPower.ftp * runPower.powerZones[1] / 100)}W
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-muted-foreground min-w-[80px] text-right">
+                        &lt; {derived.hr.easy} bpm
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-sm bg-amber-500" />
@@ -277,17 +333,31 @@ export default function DashboardPage() {
                     <div className="text-xs font-medium">
                       {fmtPace(derived.paceZones.short[0])}–{fmtPace(derived.paceZones.long[1])}/km
                     </div>
-                    <div className="text-[11px] text-muted-foreground min-w-[64px] text-right">
-                      {derived.hr.subLow}–{derived.hr.subHigh} bpm
-                    </div>
+                    {runPower?.ftp && runPower.powerZones ? (
+                      <div className="text-[11px] text-muted-foreground min-w-[80px] text-right">
+                        {Math.round(runPower.ftp * runPower.powerZones[2] / 100)}–{Math.round(runPower.ftp * runPower.powerZones[3] / 100)}W
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-muted-foreground min-w-[80px] text-right">
+                        {derived.hr.subLow}–{derived.hr.subHigh} bpm
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-sm bg-red-500" />
-                    <div className="text-xs text-muted-foreground flex-1">LTHR ceiling</div>
-                    <div className="text-xs font-medium">—</div>
-                    <div className="text-[11px] text-red-700 dark:text-red-400 min-w-[64px] text-right">
-                      {derived.hr.lthr} bpm
+                    <div className="text-xs text-muted-foreground flex-1">Threshold</div>
+                    <div className="text-xs font-medium">
+                      {fmtPace(derived.paceZones.threshold)}/km
                     </div>
+                    {runPower?.ftp ? (
+                      <div className="text-[11px] text-red-700 dark:text-red-400 min-w-[80px] text-right">
+                        {runPower.ftp}W
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-red-700 dark:text-red-400 min-w-[80px] text-right">
+                        {derived.hr.lthr} bpm
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -340,7 +410,6 @@ export default function DashboardPage() {
           {/* Admin: Invite users */}
           {isAdmin && <AdminInvite />}
 
-          <ChangePassword />
         </div>
 
         {/* ── Right column: Intervals.icu data ── */}
