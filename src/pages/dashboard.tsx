@@ -9,6 +9,7 @@ import TestTracker from "@/components/test-tracker"
 import ActivitiesList from "@/components/activities-list"
 // import BudgetCalculator from "@/components/budget-calculator"
 import TrainingSummary from "@/components/training-summary"
+import { AdminInvite } from "@/components/admin-invite"
 
 interface TestResult {
   id: string
@@ -69,6 +70,7 @@ export default function DashboardPage() {
   const [connectLoading, setConnectLoading] = useState(false)
   const [syncLoading, setSyncLoading] = useState(false)
   const [intervalsOpen, setIntervalsOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -85,6 +87,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) {
       fetchTests()
+
+      // Check admin status
+      apiFetch<{ is_admin: boolean }>("/api/auth/me")
+        .then((data) => setIsAdmin(data.is_admin))
+        .catch(() => {})
 
       // Try fetching wellness data (last 7 days)
       const from = new Date()
@@ -328,6 +335,9 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+
+          {/* Admin: Invite users */}
+          {isAdmin && <AdminInvite />}
         </div>
 
         {/* ── Right column: Intervals.icu data ── */}

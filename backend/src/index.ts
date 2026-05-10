@@ -12,6 +12,7 @@ import { ActivitiesService } from "./services/Activities"
 import { WorkoutExportService } from "./services/WorkoutExport"
 import { BlockService } from "./services/Block"
 import { AssessmentService } from "./services/Assessment"
+import { EmailService } from "./services/Email"
 import { runMigrations } from "./migrations"
 import { app } from "./server"
 
@@ -28,6 +29,7 @@ const AppServicesLive = Layer.mergeAll(
   WorkoutExportService.Default,
   BlockService.Default,
   AssessmentService.Default,
+  EmailService.Default,
 )
 
 const ServerLive = HttpServer.serve(app).pipe(

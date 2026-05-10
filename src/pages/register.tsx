@@ -1,39 +1,69 @@
-import { useState, type FormEvent } from "react"
-import { Link, useNavigate } from "react-router"
-import { Eye, EyeOff } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+// src/pages/register.tsx
+import { useState, useMemo } from "react"
+import { useSearchParams } from "react-router"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
-export default function RegisterPage() {
-  const { register } = useAuth()
-  const navigate = useNavigate()
+function decodeTokenEmail(token: string): string | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]))
+    if (payload.type !== "invite") return null
+    return payload.email
+  } catch {
+    return null
+  }
+}
 
-  const [email, setEmail] = useState("")
+export default function RegisterPage() {
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get("token")
+
+  const email = useMemo(() => token ? decodeTokenEmail(token) : null, [token])
+
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError("")
+  if (!token || !email) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center space-y-4">
+          <h1 className="text-xl font-semibold">Invalid Invitation</h1>
+          <p className="text-sm text-muted-foreground">
+            This registration link is invalid or expired. Please request a new invitation.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters")
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters")
       return
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
+      setError("Passwords don't match")
       return
     }
-
     setSubmitting(true)
+    setError("")
     try {
-      await register(email, password)
-      navigate("/dashboard")
+      const res = await fetch(
+        import.meta.env.DEV ? "http://localhost:3002/api/auth/register" : "/api/auth/register",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, password }),
+        }
+      )
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Registration failed")
+      // Auto-login
+      localStorage.setItem("nsa-token", data.token)
+      window.location.href = "/dashboard"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed")
     } finally {
@@ -42,73 +72,48 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="max-w-[400px] mx-auto px-5 min-h-[calc(100vh-60px)] flex flex-col justify-center">
-      <div className="rounded-xl border border-border bg-gradient-to-b from-background to-muted/50 p-6 hover:border-foreground/20 hover:shadow-lg transition-all">
-      <div className="flex justify-center mb-5">
-        <img src="/logo-dark.png" alt="NSA" className="h-6 dark:hidden" />
-        <img src="/logo-light.png" alt="NSA" className="h-6 hidden dark:block" />
-      </div>
-      <h1 className="text-2xl font-semibold tracking-tight mb-1">Create account</h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        Enter your email and password
-      </p>
-
-      <form onSubmit={handleSubmit} className="grid gap-4">
-        <Input
-          type="email"
-          placeholder="Email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <div className="relative">
-          <Input
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="pr-10"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
-        <div className="relative">
-          <Input
-            type={showConfirm ? "text" : "password"}
-            placeholder="Confirm password"
-            required
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="pr-10"
-          />
-          <button
-            type="button"
-            onClick={() => setShowConfirm((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold">Create Your Account</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Complete your registration to get started.
+          </p>
         </div>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
-
-        <Button type="submit" className="w-full" disabled={submitting}>
-          {submitting ? "Creating account\u2026" : "Create account"}
-        </Button>
-      </form>
-
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link to="/login" className="text-foreground underline underline-offset-4 hover:text-foreground/80">
-          Sign in
-        </Link>
-      </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Email</label>
+            <Input value={email} disabled className="mt-1 bg-muted" />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Password</label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min 8 characters"
+              required
+              minLength={8}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Confirm Password</label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm your password"
+              required
+              className="mt-1"
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" disabled={submitting} className="w-full">
+            {submitting ? "Creating account..." : "Create Account"}
+          </Button>
+        </form>
       </div>
     </div>
   )

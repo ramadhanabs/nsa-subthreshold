@@ -14,6 +14,7 @@ import { ActivitiesService } from "./services/Activities"
 import { WorkoutExportService } from "./services/WorkoutExport"
 import { BlockService } from "./services/Block"
 import { AssessmentService } from "./services/Assessment"
+import { EmailService } from "./services/Email"
 
 // ── HTTP Error ────────────────────────────────────────────────────────
 
@@ -57,6 +58,14 @@ const extractUser = Effect.gen(function* () {
   return yield* auth.verify(token)
 })
 
+const extractAdmin = Effect.gen(function* () {
+  const user = yield* extractUser
+  const auth = yield* AuthService
+  const admin = yield* auth.isAdmin(user.id)
+  if (!admin) return yield* new HttpError({ status: 403, message: "Admin access required" })
+  return user
+})
+
 const readJson = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
   const raw = yield* req.json
@@ -76,10 +85,13 @@ const jsonError = (message: string, status: number) =>
 // Auth (public)
 const authRoutes = HttpRouter.empty.pipe(
   HttpRouter.post("/api/auth/register", Effect.gen(function* () {
-    const body = yield* readJson as Effect.Effect<{ email: string; password: string }>
-    if (!body.email || !body.password) return yield* badRequest("email and password are required")
+    const body = yield* readJson
+    if (!body.token || !body.password) return yield* badRequest("token and password are required")
     const auth = yield* AuthService
-    const result = yield* auth.register(body.email, body.password)
+    const result = yield* auth.register(body.token, body.password)
+    // Send welcome email (fire and forget)
+    const emailSvc = yield* EmailService
+    yield* emailSvc.sendWelcome(result.email).pipe(Effect.catchAll(() => Effect.void))
     return yield* json(result)
   })),
 
@@ -209,6 +221,24 @@ const blockRoutes = HttpRouter.empty.pipe(
   })),
 )
 
+// Admin
+const adminRoutes = HttpRouter.empty.pipe(
+  HttpRouter.post("/api/admin/invite", Effect.gen(function* () {
+    const admin = yield* extractAdmin
+    const body = yield* readJson
+    if (!body.email) return yield* badRequest("email is required")
+    const auth = yield* AuthService
+    const token = yield* auth.invite(body.email)
+    const emailSvc = yield* EmailService
+    yield* emailSvc.sendInvitation(body.email, token)
+    yield* Effect.logInfo("invitation sent").pipe(
+      Effect.annotateLogs("admin", admin.email),
+      Effect.annotateLogs("invited", body.email),
+    )
+    return yield* json({ ok: true, email: body.email })
+  })),
+)
+
 // ── Combined router ──────────────────────────────────────────────────
 
 const router = HttpRouter.empty.pipe(
@@ -219,6 +249,7 @@ const router = HttpRouter.empty.pipe(
   HttpRouter.concat(wellnessRoutes),
   HttpRouter.concat(activityRoutes),
   HttpRouter.concat(blockRoutes),
+  HttpRouter.concat(adminRoutes),
 
   // Routes that need path parsing (can't use static router)
   HttpRouter.all("*", Effect.gen(function* () {
@@ -329,6 +360,9 @@ const withCors = HttpRouter.use(router, (handler) =>
             case "ValidationError": return jsonError((err as any).message, 400)
             case "IntervalsNotConnected": return jsonError("Intervals.icu not connected", 400)
             case "IntervalsApiError": return jsonError((err as any).message, 502)
+            case "InvitationRequired": return jsonError("Valid invitation required", 400)
+            case "InvitationExpired": return jsonError("Invitation expired or invalid", 400)
+            case "NotAdmin": return jsonError("Admin access required", 403)
           }
         }
         const message = err instanceof Error ? err.message : String(err)

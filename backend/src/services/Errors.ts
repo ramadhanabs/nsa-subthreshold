@@ -28,3 +28,10 @@ export class IntervalsApiError extends Data.TaggedError("IntervalsApiError")<{
   status: number
   message: string
 }> {}
+
+// Invitation errors
+export class InvitationRequired extends Data.TaggedError("InvitationRequired")<{}> {}
+
+export class InvitationExpired extends Data.TaggedError("InvitationExpired")<{}> {}
+
+export class NotAdmin extends Data.TaggedError("NotAdmin")<{}> {}

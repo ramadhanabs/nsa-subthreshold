@@ -4,12 +4,14 @@ import { up as migration001 } from "./001_initial"
 import { up as migration002 } from "./002_test_results"
 import { up as migration003 } from "./003_activities"
 import { up as migration004 } from "./004_blocks"
+import { up as migration005 } from "./005_admin"
 
 const migrations = [
   { name: "001_initial", up: migration001 },
   { name: "002_test_results", up: migration002 },
   { name: "003_activities", up: migration003 },
   { name: "004_blocks", up: migration004 },
+  { name: "005_admin", up: migration005 },
 ]
 
 export const runMigrations = Effect.gen(function* () {

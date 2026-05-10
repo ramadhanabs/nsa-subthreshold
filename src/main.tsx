@@ -11,6 +11,7 @@ import PlannerPage from "./pages/planner"
 import GettingStartedPage from "./pages/getting-started"
 import ComparisonPage from "./pages/comparison"
 import LoginPage from "./pages/login"
+import RegisterPage from "./pages/register"
 
 import DashboardPage from "./pages/dashboard"
 import BlockGeneratorPage from "./pages/block-generator"
@@ -28,6 +29,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/getting-started" element={<GettingStartedPage />} />
             <Route path="/comparison" element={<ComparisonPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
 
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/block-generator" element={<BlockGeneratorPage />} />
