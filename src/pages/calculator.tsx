@@ -1,17 +1,15 @@
 import { useState, useEffect } from "react"
-import { type InputMode, get5kPace, getHR, getPaceZones, fmtPace } from "@/lib/calculator"
+import { type InputMode, get5kPace, getPaceZones, fmtPace } from "@/lib/calculator"
 import { RaceInput } from "@/components/race-input"
-import { HeartRateInput } from "@/components/heart-rate-input"
+import { FtpInput } from "@/components/ftp-input"
 import { MetricCards } from "@/components/metric-cards"
 import { PaceCard } from "@/components/pace-card"
-import { ZoneChart } from "@/components/zone-chart"
-import { ZoneCards } from "@/components/zone-cards"
 
 export default function CalculatorPage() {
   const [inputMode, setInputMode] = useState<InputMode>("5k")
   const [inpA, setInpA] = useState(24)
   const [inpB, setInpB] = useState(30)
-  const [mhr, setMhr] = useState(208)
+  const [ftp, setFtp] = useState(300)
 
   const handleModeChange = (mode: InputMode) => {
     setInputMode(mode)
@@ -27,17 +25,19 @@ export default function CalculatorPage() {
   }
 
   const fkp = get5kPace(inputMode, inpA, inpB)
-  const hr = getHR(mhr)
   const paceZones = getPaceZones(fkp)
 
   useEffect(() => {
     localStorage.setItem("nsa-5k-pace", String(fkp))
   }, [fkp])
 
+  useEffect(() => {
+    localStorage.setItem("nsa-ftp", String(ftp))
+  }, [ftp])
+
   const paceDisplay = (() => {
     if (inputMode === "20min") return `${(inpA + inpB / 100).toFixed(2)} km`
     if (inputMode === "5k") return `${fmtPace(fkp)}/km`
-    // Show actual race pace for 10k/half/full
     const totalSecs = inputMode === "10k"
       ? inpA * 60 + inpB
       : inpA * 3600 + inpB * 60
@@ -52,7 +52,7 @@ export default function CalculatorPage() {
           Sub-threshold training calculator
         </h1>
         <p className="text-sm text-muted-foreground max-w-[520px]">
-          Norwegian Singles method — derive your sub-threshold paces and HR zones
+          Norwegian Singles method — derive your sub-threshold paces and power zones
           from a race result (5K to marathon) or 20-minute time trial.
         </p>
       </header>
@@ -67,20 +67,18 @@ export default function CalculatorPage() {
           onInpAChange={setInpA}
           onInpBChange={setInpB}
         />
-        <HeartRateInput mhr={mhr} hr={hr} onMhrChange={setMhr} />
+        <FtpInput ftp={ftp} onFtpChange={setFtp} />
       </div>
 
-      <MetricCards hr={hr} />
+      <MetricCards ftp={ftp} />
       <PaceCard paceZones={paceZones} />
-      <ZoneChart hr={hr} />
-      <ZoneCards hr={hr} />
 
       <footer className="pt-5 border-t text-xs text-muted-foreground leading-relaxed">
         Based on Sirpoc84's Norwegian Singles method posts (LetsRun, 2023-2025).
-        Paces derived from VDOT / Tinman CV equivalencies. LTHR estimated at 89% of
-        max HR (Friel method). For best accuracy, confirm LTHR with a solo 30-minute
-        time trial. When in doubt, go slower — at 90% of LT pace you still get ~97%
-        of the training benefit.
+        Paces derived from VDOT / Tinman CV equivalencies. Power zones derived from
+        running FTP using standard 7-zone model. For best accuracy, use your
+        Intervals.icu FTP value. When in doubt, go slower — at 90% of threshold
+        you still get ~97% of the training benefit.
       </footer>
     </div>
   )
